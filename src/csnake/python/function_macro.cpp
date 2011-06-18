@@ -80,6 +80,9 @@ FunctionMacro::operator()(
 
     // Transform the result.
     std::vector<csnake::core::token_type> result;
+    if (py_result == Py_None)
+        return result;
+
     if (!PySequence_Check(py_result))
     {
         //PyErr_SetString(
@@ -88,6 +91,7 @@ FunctionMacro::operator()(
             "macro functions must return a sequence of tokens");
         //return ;
     }
+
     const Py_ssize_t seqlen = PySequence_Size(py_result);
     if (seqlen == -1)
     {

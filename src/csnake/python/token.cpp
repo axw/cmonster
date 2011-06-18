@@ -118,10 +118,32 @@ static PyObject* Token_repr(Token *self)
                                 position.get_line(), position.get_column());
 }
 
+static PyObject* Token_get_token_id(Token *self, void *closure)
+{
+    return PyLong_FromLong(static_cast<boost::wave::token_id>(*self->token));
+}
+
+static PyObject*
+Token_set_token_id(Token *self, PyObject *value, void *closure)
+{
+    long id = PyLong_AsLong(value);
+    if (id == -1 && PyErr_Occurred())
+        return NULL;
+    self->token->set_token_id(static_cast<boost::wave::token_id>(id));
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyGetSetDef Token_getset[] = {
+    {"token_id", (getter)Token_get_token_id, (setter)Token_set_token_id,
+     NULL /* docs */, NULL /* closure */},
+    {NULL}
+};
+
 static PyType_Slot TokenTypeSlots[] =
 {
     {Py_tp_dealloc, (void*)Token_dealloc},
-    //{Py_tp_methods, (void*)Token_methods},
+    {Py_tp_getset,  (void*)Token_getset},
     {Py_tp_str,     (void*)Token_str},
     {Py_tp_repr,    (void*)Token_repr},
     {Py_tp_doc,     (void*)Token_doc},
@@ -131,7 +153,7 @@ static PyType_Slot TokenTypeSlots[] =
 
 static PyType_Spec TokenTypeSpec =
 {
-    "_preprocessor.Token",
+    "csnake._preprocessor.Token",
     sizeof(Token),
     0,
     Py_TPFLAGS_DEFAULT,

@@ -77,6 +77,20 @@ public:
                 boost::shared_ptr<FunctionMacro> const& function);
 
     /**
+     * Adds a pragma handler for the specified string.
+     *
+     * Currently, all defined pragmas will only be matched when preceded with
+     * "wave". For example, a defined pragma of "test" will be matched by
+     * "#pragma wave test" and not "#pragma test".
+     *
+     * @param name The name of the pragma to define.
+     * @param handler The pragma handler that will be called on interpretation.
+     * @return True if the pragma was defined successfully.
+     */
+    bool add_pragma(std::string const& name,
+                    boost::shared_ptr<FunctionMacro> const& handler);
+
+    /**
      * Preprocess the input, returning an iterator which will yield the output
      * tokens.
      *

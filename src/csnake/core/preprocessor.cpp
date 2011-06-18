@@ -105,6 +105,33 @@ struct csnake_preprocessor_hooks
         return false;
     }
 
+    template <typename ContextT, typename ContainerT>
+    bool interpret_pragma(ContextT const& ctx, ContainerT &pending,
+                          typename ContextT::token_type const& option,
+                          ContainerT const& values,
+                          typename ContextT::token_type const& act_token)
+    {
+        std::string name = option.get_value().c_str();
+        boost::unordered_map<
+            std::string,
+            boost::shared_ptr<csnake::core::FunctionMacro>
+        >::iterator iter = pragmas.find(name);
+        if (iter != pragmas.end())
+        {
+            std::vector<csnake::core::token_type>
+                arguments(values.begin(), values.end());
+            std::vector<csnake::core::token_type>
+                replacement = (*iter->second)(arguments);
+            if (!replacement.empty())
+            {
+                std::copy(replacement.begin(), replacement.end(),
+                    std::back_inserter(pending));
+            }
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Mapping from name to function, for dynamic macro replacement.
      */
@@ -112,6 +139,14 @@ struct csnake_preprocessor_hooks
         std::string,
         boost::shared_ptr<csnake::core::FunctionMacro>
     > functions;
+
+    /**
+     * Mapping from name to pragma handler, for pragma interpretation.
+     */
+    boost::unordered_map<
+        std::string,
+        boost::shared_ptr<csnake::core::FunctionMacro>
+    > pragmas;
 };
 
 } // anonymous namespace
@@ -166,6 +201,21 @@ public:
         return false;
     }
 
+    /**
+     * Defines a Boost Wave pragma with the given name, and stores a function
+     * which will be invoked for the replacement.
+     */
+    bool add_pragma(std::string const& name,
+                    boost::shared_ptr<FunctionMacro> const& function)
+    {
+        if (function)
+        {
+            return get_hooks().pragmas.insert(
+                std::make_pair(name, function)).second;
+        }
+        return false;
+    }
+
 private:
 };
 
@@ -214,6 +264,12 @@ bool Preprocessor::define(std::string const& name,
                           boost::shared_ptr<FunctionMacro> const& function)
 {
     return m_impl->add_macro_function(name, function);
+}
+
+bool Preprocessor::add_pragma(std::string const& name,
+                              boost::shared_ptr<FunctionMacro> const& handler)
+{
+    return m_impl->add_pragma(name, handler);
 }
 
 TokenIterator* Preprocessor::preprocess()

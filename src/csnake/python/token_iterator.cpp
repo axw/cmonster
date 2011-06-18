@@ -114,7 +114,7 @@ static PyType_Slot TokenIteratorTypeSlots[] =
 
 static PyType_Spec TokenIteratorTypeSpec =
 {
-    "_preprocessor.TokenIterator",
+    "csnake._preprocessor.TokenIterator",
     sizeof(TokenIterator),
     0,
     Py_TPFLAGS_DEFAULT,

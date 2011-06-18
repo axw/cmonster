@@ -52,6 +52,7 @@ static void Preprocessor_dealloc(Preprocessor* self)
     PyObject_Del((PyObject*)self);
 }
 
+// TODO support initialising with a file object or a string.
 static int
 Preprocessor_init(Preprocessor *self, PyObject *args, PyObject *kwds)
 {
@@ -68,7 +69,10 @@ Preprocessor_init(Preprocessor *self, PyObject *args, PyObject *kwds)
             PyErr_SetFromErrnoWithFilename(PyExc_IOError, filename);
             return -1;
         }
+
+        // Create a core preprocessor object.
         self->preprocessor = new csnake::core::Preprocessor(fin, filename);
+        
         return 0;
     }
     catch (std::exception const& e)
@@ -167,6 +171,42 @@ static PyObject* Preprocessor_define(Preprocessor* self, PyObject *args)
     return Py_None;
 }
 
+static PyObject* Preprocessor_add_pragma(Preprocessor* self, PyObject *args)
+{
+    const char *name = NULL;
+    PyObject *handler = NULL;
+    if (!PyArg_ParseTuple(args, "sO:add_pragma", &name, &handler))
+        return NULL;
+
+    try
+    {
+        if (PyCallable_Check(handler))
+        {
+            boost::shared_ptr<csnake::core::FunctionMacro>
+                function(new csnake::python::FunctionMacro(handler));
+            self->preprocessor->add_pragma(name, function);
+        }
+        else
+        {
+            PyErr_SetString(PyExc_TypeError, "expected callable for handler");
+            return NULL;
+        }
+    }
+    catch (std::exception const& e)
+    {
+        //PyErr_SetString(DatabaseError, e.what());
+        return NULL;
+    }
+    catch (...)
+    {
+        //PyErr_SetString(DatabaseError, "Unknown error occurred");
+        return NULL;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 static PyObject* Preprocessor_preprocess(Preprocessor* self, PyObject *args)
 {
     return (PyObject*)create_iterator(self);
@@ -178,6 +218,8 @@ static PyMethodDef Preprocessor_methods[] =
      (PyCFunction)&Preprocessor_add_include_path, METH_VARARGS},
     {(char*)"define",
      (PyCFunction)&Preprocessor_define, METH_VARARGS},
+    {(char*)"add_pragma",
+     (PyCFunction)&Preprocessor_add_pragma, METH_VARARGS},
     {(char*)"preprocess",
      (PyCFunction)&Preprocessor_preprocess, METH_VARARGS},
     {NULL}
@@ -196,7 +238,7 @@ static PyType_Slot PreprocessorTypeSlots[] =
 
 static PyType_Spec PreprocessorTypeSpec =
 {
-    "_preprocessor.Preprocessor",
+    "csnake._preprocessor.Preprocessor",
     sizeof(Preprocessor),
     0,
     Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,

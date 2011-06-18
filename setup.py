@@ -23,9 +23,23 @@ _preprocessor_extension = Extension(
     libraries = ["boost_wave"] # XXX Le sigh. I can't specify "-static"?
 )
 
+classifiers =[
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3.2",
+    "Programming Language :: C",
+    "Programming Language :: C++",
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 3 - Alpha",
+    "Topic :: Software Development :: Pre-processors"
+]
+
 setup(
     name="csnake",
     version="0.1",
+    classifiers=classifiers,
+    packages = ["csnake"],
+    package_dir = {"": "lib"},
     ext_modules=[_preprocessor_extension]
 )
 
