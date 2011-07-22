@@ -20,26 +20,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CSNAKE_PYTHON_TOKEN_ITERATOR_HPP
-#define _CSNAKE_PYTHON_TOKEN_ITERATOR_HPP
+#ifndef _CSNAKE_PYTHON_PREPROCESSOR_HPP
+#define _CSNAKE_PYTHON_PREPROCESSOR_HPP
 
-namespace csnake {
+#include "../core/preprocessor.hpp"
+
+namespace cmonster {
 namespace python {
 
-// Python object structure to wrap a csnake::core::TokenIterator.
+// Python object structure to wrap a cmonster::core::Preprocessor.
 struct Preprocessor;
-struct TokenIterator;
 
 /**
- * Create a new heap-allocated TokenIterator from the specified preprocessor
- * object.
+ * Get the core preprocessor from the Python wrapper object.
  */
-TokenIterator* create_iterator(Preprocessor *preprocessor);
+cmonster::core::Preprocessor& get_preprocessor(Preprocessor *wrapper);
 
 /**
- * Initialise the TokenIterator Python type object.
+ * Initialise the Preprocessor Python type object.
  */
-PyObject* init_token_iterator_type();
+PyTypeObject* init_preprocessor_type();
+
+/**
+ * Get the Preprocessor Python type object.
+ */
+PyTypeObject* get_preprocessor_type();
 
 }}
 

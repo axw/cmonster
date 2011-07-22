@@ -20,14 +20,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "function_macro.hpp"
+#ifndef _CSNAKE_CORE_TOKENPREDICATE_HPP
+#define _CSNAKE_CORE_TOKENPREDICATE_HPP
 
-namespace csnake {
+#include "token.hpp"
+
+namespace cmonster {
 namespace core {
 
-FunctionMacro::~FunctionMacro()
+/**
+ * Abstract base class for token predicates.
+ */
+class TokenPredicate
 {
-}
+public:
+    virtual ~TokenPredicate();
+
+    virtual bool operator()(Token const& token) const = 0;
+};
 
 }}
+
+#endif
 

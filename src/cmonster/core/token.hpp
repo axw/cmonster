@@ -20,32 +20,63 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CSNAKE_CORE_PREPROCESSOR_ITERATOR_HPP
-#define _CSNAKE_CORE_PREPROCESSOR_ITERATOR_HPP
+#ifndef _CSNAKE_CORE_TOKEN_HPP
+#define _CSNAKE_CORE_TOKEN_HPP
 
-#include "token.hpp"
+#include <clang/Lex/Preprocessor.h>
 
-namespace csnake {
+#include <boost/shared_ptr.hpp>
+
+#include <ostream>
+
+namespace cmonster {
 namespace core {
 
-/**
- * Iterator class, as returned by Preprocessor::preprocess().
- */
-class TokenIterator
+class TokenImpl;
+
+class Token
 {
 public:
-    virtual ~TokenIterator();
+    Token();
+    Token(clang::Preprocessor &pp);
+    Token(clang::Preprocessor &pp, clang::Token const& token);
+    Token(clang::Preprocessor &pp,
+          clang::tok::TokenKind kind,
+          const char *value = NULL, size_t value_len = 0);
+
+    Token(Token const& rhs);
+    Token& operator=(Token const& rhs);
 
     /**
-     * Check if there are any more tokens to be returned.
+     * Get the underlying Clang token.
      */
-    virtual bool has_next() const throw() = 0;
+    clang::Token& getToken();
 
     /**
-     * Get the next token, subsequently incrementing the iterator.
+     * Get the underlying Clang token.
      */
-    virtual token_type next() = 0;
+    const clang::Token& getToken() const;
+
+    /**
+     * Set the underlying Clang token.
+     */
+    void setToken(clang::Token const&);
+
+    /**
+     * Get the token name (stringified "kind").
+     */
+    const char* getName() const;
+
+private:
+    friend std::ostream& operator<<(std::ostream&, Token const& token);
+
+    boost::shared_ptr<TokenImpl> m_impl;
 };
+
+/**
+ * Output stream operator for Token.
+ */
+std::ostream& operator<<(std::ostream&, Token const&);
 
 }}
 

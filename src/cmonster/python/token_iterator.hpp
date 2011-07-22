@@ -20,30 +20,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CSNAKE_CORE_FUNCTIONMACRO_HPP
-#define _CSNAKE_CORE_FUNCTIONMACRO_HPP
+#ifndef _CSNAKE_PYTHON_TOKEN_ITERATOR_HPP
+#define _CSNAKE_PYTHON_TOKEN_ITERATOR_HPP
 
-#include "token.hpp"
-#include <vector>
+namespace cmonster {
+namespace python {
 
-namespace csnake {
-namespace core {
+// Python object structure to wrap a cmonster::core::TokenIterator.
+struct Preprocessor;
+struct TokenIterator;
 
 /**
- * Abstract base class for function macros.
+ * Create a new heap-allocated TokenIterator from the specified preprocessor
+ * object.
  */
-class FunctionMacro
-{
-public:
-    virtual ~FunctionMacro();
+TokenIterator* create_iterator(Preprocessor *preprocessor);
 
-    /**
-     * Invoke the function, given a (possibly empty) list of arguments
-     * (tokens), and returning a (possibly empty) list of tokens.
-     */
-    virtual std::vector<token_type>
-    operator()(std::vector<token_type> const& arguments) const = 0;
-};
+/**
+ * Initialise the TokenIterator Python type object.
+ */
+PyObject* init_token_iterator_type();
 
 }}
 

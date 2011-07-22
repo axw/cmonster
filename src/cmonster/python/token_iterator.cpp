@@ -28,14 +28,12 @@ SOFTWARE.
 #include <stdexcept>
 #include <iostream>
 
-#include <boost/wave/cpp_exceptions.hpp>
-
 #include "token_iterator.hpp"
 #include "token.hpp"
 #include "preprocessor.hpp"
 #include "../core/token_iterator.hpp"
 
-namespace csnake {
+namespace cmonster {
 namespace python {
 
 static PyObject *TokenIteratorType = NULL;
@@ -45,7 +43,7 @@ struct TokenIterator
 {
     PyObject_HEAD
     Preprocessor *preprocessor;
-    csnake::core::TokenIterator *iterator;
+    cmonster::core::TokenIterator *iterator;
 };
 
 static void TokenIterator_dealloc(TokenIterator* self)
@@ -70,20 +68,14 @@ static PyObject* TokenIterator_iternext(TokenIterator *self)
         {
             if (self->iterator->has_next())
             {
-                csnake::core::token_type token = self->iterator->next();
-                return (PyObject*)create_token(token);
+                cmonster::core::Token &token = self->iterator->next();
+                return (PyObject*)create_token(self->preprocessor, token);
             }
             else
             {
                 delete self->iterator;
                 self->iterator = NULL;
             }
-        }
-        catch (boost::wave::preprocess_exception const& e)
-        {
-            // TODO Create PreprocessorException or similar.
-            PyErr_SetString(PyExc_RuntimeError, e.description());
-            return NULL;
         }
         catch (std::exception const& e)
         {
@@ -92,7 +84,7 @@ static PyObject* TokenIterator_iternext(TokenIterator *self)
         }
         catch (...)
         {
-            //PyErr_SetString(XError, e.what());
+            PyErr_SetNone(PyExc_RuntimeError);
             return NULL;
         }
     }
@@ -114,7 +106,7 @@ static PyType_Slot TokenIteratorTypeSlots[] =
 
 static PyType_Spec TokenIteratorTypeSpec =
 {
-    "csnake._preprocessor.TokenIterator",
+    "cmonster._preprocessor.TokenIterator",
     sizeof(TokenIterator),
     0,
     Py_TPFLAGS_DEFAULT,
@@ -131,15 +123,16 @@ TokenIterator* create_iterator(Preprocessor *preprocessor)
     {
         try
         {
-            iter->iterator = get_preprocessor(preprocessor)->preprocess();
+            iter->iterator = get_preprocessor(preprocessor).create_iterator();
         }
         catch (std::exception const& e)
         {
-            //PyErr_SetString(XError, e.what());
+            PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
         }
         catch (...)
         {
+            PyErr_SetNone(PyExc_RuntimeError);
             PyObject_Del(iter);
             return NULL;
         }

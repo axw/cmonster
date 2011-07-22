@@ -20,27 +20,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CSNAKE_PYTHON_FUNCTIONMACRO_HPP
-#define _CSNAKE_PYTHON_FUNCTIONMACRO_HPP
+#ifndef _CSNAKE_PYTHON_SCOPED_PYOBJECT_HPP
+#define _CSNAKE_PYTHON_SCOPED_PYOBJECT_HPP
 
-#include "../core/function_macro.hpp"
+/* Define this to ensure only the limited API is used, so we can ensure forward
+ * binary compatibility. */
+#define Py_LIMITED_API
+#include <Python.h>
 
-namespace csnake {
+namespace cmonster {
 namespace python {
 
-/**
- */
-class FunctionMacro : public csnake::core::FunctionMacro
+struct ScopedPyObject
 {
-public:
-    FunctionMacro(PyObject *callable);
-    ~FunctionMacro();
-
-    std::vector<csnake::core::token_type>
-    operator()(std::vector<csnake::core::token_type> const& arguments) const;
+    ScopedPyObject(PyObject *ref) : m_ref(ref) {}
+    ~ScopedPyObject() {Py_XDECREF(m_ref);}
+    operator PyObject* () {return m_ref;}
 
 private:
-    PyObject *m_callable;
+    PyObject *m_ref;
 };
 
 }}

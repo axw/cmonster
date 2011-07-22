@@ -1,4 +1,4 @@
-csnake is C Preprocessor with a simple Python API and support for defining
+cmonster is C Preprocessor with a simple Python API and support for defining
 macros as Python functions.
 
 Examples, installation, etc. coming soon.

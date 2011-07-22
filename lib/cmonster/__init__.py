@@ -30,7 +30,7 @@ from ._preprocessor import *
 # Define the names to import from this module.
 __all__ = [
     "Preprocessor", "Token",
-] + [name for name in locals() if name.startswith("T_")]
+] + [name for name in locals() if name.startswith("tok_")]
 
 
 # Import Python block classes.
@@ -99,8 +99,8 @@ class Preprocessor(_Preprocessor):
     Main C Preprocessor class.
     """
 
-    def __init__(self, filename):
-        _Preprocessor.__init__(self, filename)
+    def __init__(self, filename, include_paths=()):
+        _Preprocessor.__init__(self, filename, include_paths)
         self.__iterator = None
 
         # Predefined custom pragmas.
@@ -117,14 +117,22 @@ class Preprocessor(_Preprocessor):
         self.define('py_end=_Pragma("wave py_end")')
 
 
-    def preprocess(self):
+    def preprocess(self, f=None):
         """
-        Main entrypoint method to the preprocessor. Returns an token iterator.
+        Preprocesses the source and prints the output to the specified file.
         """
-        assert self.__iterator is None
-        self.__iterator = TokenIteratorWrapper(
-            self, _Preprocessor.preprocess(self))
-        return self.__iterator
+        if f is None:
+            _Preprocessor.preprocess(self, sys.stdout.fileno())
+        elif type(f) is str:
+            with open(f) as f_:
+                _Preprocessor.preprocess(self, f_.fileno())
+        else:
+            # Assume it's a file-like object with a fileno() method.
+            return _Preprocessor.preprocess(self, f.fileno())
+
+
+    def __iter__(self):
+        return TokenIteratorWrapper(self, _Preprocessor.__iter__(self))
 
 
     def __pydef(self, *args):

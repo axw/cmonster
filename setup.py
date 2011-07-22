@@ -9,18 +9,55 @@ if "CFLAGS" in cfg_vars:
 
 # "_preprocessor" extension module.
 _preprocessor_extension = Extension(
-    "csnake._preprocessor",
+    "cmonster._preprocessor",
     [
-        "src/csnake/core/function_macro.cpp",
-        "src/csnake/core/preprocessor.cpp",
-        "src/csnake/core/token_iterator.cpp",
-        "src/csnake/python/function_macro.cpp",
-        "src/csnake/python/module.cpp",
-        "src/csnake/python/preprocessor.cpp",
-        "src/csnake/python/token.cpp",
-        "src/csnake/python/token_iterator.cpp",
+        "src/cmonster/core/function_macro.cpp",
+        "src/cmonster/core/preprocessor.cpp",
+        "src/cmonster/core/token_iterator.cpp",
+        "src/cmonster/core/token_predicate.cpp",
+        "src/cmonster/core/token.cpp",
+        "src/cmonster/python/function_macro.cpp",
+        "src/cmonster/python/module.cpp",
+        "src/cmonster/python/preprocessor.cpp",
+        "src/cmonster/python/token.cpp",
+        "src/cmonster/python/token_iterator.cpp",
+        "src/cmonster/python/token_predicate.cpp"
     ],
-    libraries = ["boost_wave"] # XXX Le sigh. I can't specify "-static"?
+
+    # Required by LLVM/Clang.
+    define_macros = [("__STDC_LIMIT_MACROS", 1),
+                     ("__STDC_CONSTANT_MACROS", 1)],
+
+    # LLVM/Clang include directories.
+    include_dirs = [
+        "src",
+        "/home/andrew/prog/llvm/tools/clang/include/",
+        "/home/andrew/prog/llvm/build/tools/clang/include/",
+        "/home/andrew/prog/llvm/include/",
+        "/home/andrew/prog/llvm/build/include/"
+    ],
+
+    # LLVM/Clang libraries.
+    library_dirs = ["/home/andrew/prog/llvm/build/Debug+Asserts/lib"],
+    libraries = [
+        "clangFrontend",
+        "clangDriver",
+        "clangSerialization",
+        "clangParse",
+        "clangSema",
+        "clangAnalysis",
+        "clangAST",
+        "clangLex",
+        "clangBasic",
+        "LLVMMC",
+        "LLVMSupport",
+        "LLVMCore",
+        "pthread",
+        "dl"
+    ],
+
+    # No RTTI in Clang, so none here either.
+    extra_compile_args = ["-fno-rtti"]
 )
 
 classifiers =[
@@ -35,10 +72,10 @@ classifiers =[
 ]
 
 setup(
-    name="csnake",
+    name="cmonster",
     version="0.1",
     classifiers=classifiers,
-    packages = ["csnake"],
+    packages = ["cmonster", "cmonster.config"],
     package_dir = {"": "lib"},
     ext_modules=[_preprocessor_extension]
 )

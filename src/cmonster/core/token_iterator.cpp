@@ -20,20 +20,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CSNAKE_CORE_TOKEN_HPP
-#define _CSNAKE_CORE_TOKEN_HPP
+#include "token_iterator.hpp"
 
-#include <boost/wave/cpplexer/cpp_lex_token.hpp>
-
-namespace csnake {
+namespace cmonster {
 namespace core {
 
-/**
- * Typedef the internal boost::wave token type.
- */
-typedef boost::wave::cpplexer::lex_token<> token_type;
+TokenIterator::~TokenIterator()
+{
+}
 
 }}
-
-#endif
 

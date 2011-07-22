@@ -23,17 +23,20 @@ SOFTWARE.
 #ifndef _CSNAKE_CORE_PREPROCESSOR_HPP
 #define _CSNAKE_CORE_PREPROCESSOR_HPP
 
-#include <istream>
 #include <string>
+#include <vector>
 
 #include <boost/shared_ptr.hpp>
+#include <clang/Basic/TokenKinds.h>
 
-namespace csnake {
+namespace cmonster {
 namespace core {
 
+class FunctionMacro;
 class PreprocessorImpl;
 class TokenIterator;
-class FunctionMacro;
+class TokenPredicate;
+class Token;
 
 /**
  * The core configurable preprocessor class.
@@ -41,8 +44,8 @@ class FunctionMacro;
 class Preprocessor
 {
 public:
-    Preprocessor(boost::shared_ptr<std::istream> input,
-                 const char *filename = "<input>");
+    Preprocessor(const char *filename,
+                 std::vector<std::string> const& include_paths);
 
     // void set_language(...)
 
@@ -53,7 +56,7 @@ public:
      * @param sysinclude True if path is a system include path.
      * @return True if the include path was added successfully.
      */
-    bool add_include_path(std::string const& path, bool sysinclude = true);
+    //bool add_include_path(std::string const& path, bool sysinclude = true);
 
     /**
      * Define a plain old macro.
@@ -79,16 +82,21 @@ public:
     /**
      * Adds a pragma handler for the specified string.
      *
-     * Currently, all defined pragmas will only be matched when preceded with
-     * "wave". For example, a defined pragma of "test" will be matched by
-     * "#pragma wave test" and not "#pragma test".
-     *
      * @param name The name of the pragma to define.
      * @param handler The pragma handler that will be called on interpretation.
      * @return True if the pragma was defined successfully.
      */
     bool add_pragma(std::string const& name,
                     boost::shared_ptr<FunctionMacro> const& handler);
+
+    /**
+     * Sets a token skipping predicate.
+     *
+     * @param predicate The predicate to call while iterating, which returns
+     *                  true to skip tokens, and, upon returning false, stops
+     *                  the token skipping.
+     */
+    void skip_while(boost::shared_ptr<TokenPredicate> const& predicate);
 
     /**
      * Preprocess the input, returning an iterator which will yield the output
@@ -100,7 +108,27 @@ public:
      * @return A PreprocessorIterator which will yield output tokens, allocated
      *         with "new".
      */
-    TokenIterator* preprocess();
+    TokenIterator* create_iterator();
+
+    /**
+     * Create a token from the given "kind" and value.
+     *
+     * @param kind TODO
+     * @param value TODO
+     * @param value_len TODO
+     */
+    Token* create_token(clang::tok::TokenKind kind,
+                        const char *value = NULL, size_t value_len = 0);
+
+    /**
+     * Preprocess the input and write the result to the specified file
+     * descriptor.
+     *
+     * @param fd TODO
+     */
+    void preprocess(long fd);
+
+    //std::string getSpelling(token_type const& tok) const;
 
 private:
     boost::shared_ptr<PreprocessorImpl> m_impl;

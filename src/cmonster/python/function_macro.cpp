@@ -27,6 +27,7 @@ SOFTWARE.
 #include <Python.h>
 
 #include "function_macro.hpp"
+#include "scoped_pyobject.hpp"
 #include "token.hpp"
 
 #include <stdexcept>
@@ -40,24 +41,29 @@ namespace {
     };
 }
 
-namespace csnake {
+namespace cmonster {
 namespace python {
 
-FunctionMacro::FunctionMacro(PyObject *callable) : m_callable(callable)
+FunctionMacro::FunctionMacro(Preprocessor *preprocessor, PyObject *callable)
+  : m_preprocessor(preprocessor), m_callable(callable)
 {
+    if (!preprocessor)
+        throw std::invalid_argument("preprocessor == NULL");
     if (!callable)
         throw std::invalid_argument("callable == NULL");
+    Py_INCREF((PyObject*)m_preprocessor);
     Py_INCREF(m_callable);
 }
 
 FunctionMacro::~FunctionMacro()
 {
     Py_DECREF(m_callable);
+    Py_DECREF((PyObject*)m_preprocessor);
 }
 
-std::vector<csnake::core::token_type>
+std::vector<cmonster::core::Token>
 FunctionMacro::operator()(
-    std::vector<csnake::core::token_type> const& arguments) const
+    std::vector<cmonster::core::Token> const& arguments) const
 {
     // Create the arguments tuple.
     ScopedPyObject args_tuple = PyTuple_New(arguments.size());
@@ -65,7 +71,7 @@ FunctionMacro::operator()(
         throw std::runtime_error("Failed to create argument tuple");
     for (Py_ssize_t i = 0; i < static_cast<Py_ssize_t>(arguments.size()); ++i)
     {
-        Token *token = create_token(arguments[i]);
+        Token *token = create_token(m_preprocessor, arguments[i]);
         PyTuple_SetItem(args_tuple, i, reinterpret_cast<PyObject*>(token));
     }
 
@@ -79,7 +85,7 @@ FunctionMacro::operator()(
     }
 
     // Transform the result.
-    std::vector<csnake::core::token_type> result;
+    std::vector<cmonster::core::Token> result;
     if (py_result == Py_None)
         return result;
 
@@ -102,16 +108,16 @@ FunctionMacro::operator()(
         for (Py_ssize_t i = 0; i < seqlen; ++i)
         {
             ScopedPyObject token_ = PySequence_GetItem(py_result, i);
-            if (PyUnicode_Check(token_))
+            /*if (PyUnicode_Check(token_))
             {
                 // TODO tokenise string.
-                result.push_back(csnake::core::token_type(
+                result.push_back(cmonster::core::token_type(
                     boost::wave::T_STRINGLIT,
                     "TODO",
-                    csnake::core::token_type::position_type("?")
+                    cmonster::core::token_type::position_type("?")
                 ));
             }
-            else if (PyObject_TypeCheck(token_, get_token_type()))
+            else */if (PyObject_TypeCheck(token_, get_token_type()))
             {
                 Token *token = (Token*)(PyObject*)token_;
                 result.push_back(get_token(token));

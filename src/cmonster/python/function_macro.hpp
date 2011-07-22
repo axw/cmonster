@@ -20,26 +20,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CSNAKE_PYTHON_PREPROCESSOR_HPP
-#define _CSNAKE_PYTHON_PREPROCESSOR_HPP
+#ifndef _CSNAKE_PYTHON_FUNCTIONMACRO_HPP
+#define _CSNAKE_PYTHON_FUNCTIONMACRO_HPP
 
-#include "../core/preprocessor.hpp"
+#include "../core/function_macro.hpp"
 
-namespace csnake {
+namespace cmonster {
 namespace python {
 
-// Python object structure to wrap a csnake::core::Preprocessor.
-struct Preprocessor;
+class Preprocessor;
 
 /**
- * Get the core preprocessor from the Python wrapper object.
  */
-csnake::core::Preprocessor* get_preprocessor(Preprocessor *wrapper);
+class FunctionMacro : public cmonster::core::FunctionMacro
+{
+public:
+    FunctionMacro(Preprocessor *pp, PyObject *callable);
+    ~FunctionMacro();
 
-/**
- * Initialise the Preprocessor Python type object.
- */
-PyObject* init_preprocessor_type();
+    std::vector<cmonster::core::Token>
+    operator()(std::vector<cmonster::core::Token> const& args) const;
+
+private:
+    Preprocessor *m_preprocessor;
+    PyObject     *m_callable;
+};
 
 }}
 

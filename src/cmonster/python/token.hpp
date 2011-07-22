@@ -20,14 +20,43 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "token_iterator.hpp"
+#ifndef _CSNAKE_PYTHON_TOKEN_HPP
+#define _CSNAKE_PYTHON_TOKEN_HPP
 
-namespace csnake {
-namespace core {
+#include "../core/token.hpp"
 
-TokenIterator::~TokenIterator()
-{
-}
+namespace cmonster {
+namespace python {
+
+// Forward declaration to Preprocessor, to which the Token is bound.
+struct Preprocessor;
+
+// Python object structure to wrap a token_type.
+struct Token;
+
+/**
+ * Create a new heap-allocated Token.
+ */
+Token* create_token(Preprocessor *pp, cmonster::core::Token const& token);
+
+/**
+ * Get the core token value from the Python wrapper object.
+ */
+cmonster::core::Token& get_token(Token *wrapper);
+
+/**
+ * Initialise the Token Python type object.
+ */
+PyTypeObject* init_token_type();
+
+/**
+ * Get the Token Python type object.
+ *
+ * init_token_type must be called before this function.
+ */
+PyTypeObject* get_token_type();
 
 }}
+
+#endif
 
