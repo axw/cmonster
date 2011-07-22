@@ -260,43 +260,6 @@ static PyObject* Preprocessor_add_pragma(Preprocessor* self, PyObject *args)
     return Py_None;
 }
 
-static PyObject* Preprocessor_skip_while(Preprocessor* self, PyObject *args)
-{
-    PyObject *predicate_ = NULL;
-    if (!PyArg_ParseTuple(args, "O:skip_while", &predicate_))
-        return NULL;
-
-    try
-    {
-        if (PyCallable_Check(predicate_))
-        {
-            boost::shared_ptr<cmonster::core::TokenPredicate>
-                predicate(new cmonster::python::TokenPredicate(
-                    self, predicate_));
-            self->preprocessor->skip_while(predicate);
-        }
-        else
-        {
-            PyErr_SetString(
-                PyExc_TypeError, "expected callable for predicate");
-            return NULL;
-        }
-    }
-    catch (std::exception const& e)
-    {
-        //PyErr_SetString(DatabaseError, e.what());
-        return NULL;
-    }
-    catch (...)
-    {
-        //PyErr_SetString(DatabaseError, "Unknown error occurred");
-        return NULL;
-    }
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
 static PyObject* Preprocessor_preprocess(Preprocessor* self, PyObject *args)
 {
     long fd;
@@ -317,8 +280,6 @@ static PyMethodDef Preprocessor_methods[] =
      (PyCFunction)&Preprocessor_define, METH_VARARGS},
     {(char*)"add_pragma",
      (PyCFunction)&Preprocessor_add_pragma, METH_VARARGS},
-    {(char*)"skip_while",
-     (PyCFunction)&Preprocessor_skip_while, METH_VARARGS},
     {(char*)"preprocess",
      (PyCFunction)&Preprocessor_preprocess, METH_VARARGS},
     {NULL}

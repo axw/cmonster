@@ -403,12 +403,6 @@ bool Preprocessor::add_pragma(std::string const& name,
     return m_impl->add_pragma(name, handler);
 }
 
-void
-Preprocessor::skip_while(boost::shared_ptr<TokenPredicate> const& predicate)
-{
-    m_impl->skip_while(predicate);
-}
-
 void Preprocessor::preprocess(long fd)
 {
     llvm::raw_fd_ostream out(fd, false);

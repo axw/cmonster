@@ -90,15 +90,6 @@ public:
                     boost::shared_ptr<FunctionMacro> const& handler);
 
     /**
-     * Sets a token skipping predicate.
-     *
-     * @param predicate The predicate to call while iterating, which returns
-     *                  true to skip tokens, and, upon returning false, stops
-     *                  the token skipping.
-     */
-    void skip_while(boost::shared_ptr<TokenPredicate> const& predicate);
-
-    /**
      * Preprocess the input, returning an iterator which will yield the output
      * tokens.
      *
