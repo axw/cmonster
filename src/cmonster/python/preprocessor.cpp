@@ -34,6 +34,7 @@ SOFTWARE.
 #include "scoped_pyobject.hpp"
 #include "token_iterator.hpp"
 #include "token_predicate.hpp"
+#include "token.hpp"
 
 namespace cmonster {
 namespace python {
@@ -260,6 +261,47 @@ static PyObject* Preprocessor_add_pragma(Preprocessor* self, PyObject *args)
     return Py_None;
 }
 
+static PyObject* Preprocessor_tokenize(Preprocessor* self, PyObject *args)
+{
+    const char *s = NULL;
+    Py_ssize_t len;
+    PyObject *expand = Py_False;
+    if (!PyArg_ParseTuple(args, "s#|O:tokenize", &s, &len, &expand))
+        return NULL;
+
+    try
+    {
+        std::vector<cmonster::core::Token> result =
+            self->preprocessor->tokenize(s, len, PyObject_IsTrue(expand));
+
+        ScopedPyObject tuple(PyTuple_New(result.size()));
+        if (!tuple)
+            return NULL;
+
+        for (Py_ssize_t i = 0; i < (Py_ssize_t)result.size(); ++i)
+        {
+            Token *token = create_token(self, result[i]);
+            if (!token)
+                return NULL;
+            PyTuple_SetItem(tuple, i, (PyObject*)token);
+        }
+        return tuple.release();
+    }
+    catch (std::exception const& e)
+    {
+        //PyErr_SetString(DatabaseError, e.what());
+        return NULL;
+    }
+    catch (...)
+    {
+        //PyErr_SetString(DatabaseError, "Unknown error occurred");
+        return NULL;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 static PyObject* Preprocessor_preprocess(Preprocessor* self, PyObject *args)
 {
     long fd;
@@ -280,6 +322,8 @@ static PyMethodDef Preprocessor_methods[] =
      (PyCFunction)&Preprocessor_define, METH_VARARGS},
     {(char*)"add_pragma",
      (PyCFunction)&Preprocessor_add_pragma, METH_VARARGS},
+    {(char*)"tokenize",
+     (PyCFunction)&Preprocessor_tokenize, METH_VARARGS},
     {(char*)"preprocess",
      (PyCFunction)&Preprocessor_preprocess, METH_VARARGS},
     {NULL}

@@ -102,6 +102,17 @@ public:
     TokenIterator* create_iterator();
 
     /**
+     * Tokenize a string.
+     *
+     * @param s The string to tokenize.
+     * @param len The length of the string to tokenize.
+     * @param expand A boolean flag specifying whether the tokens should be
+     *               expanded before returning. This defaults to false.
+     */
+    std::vector<cmonster::core::Token>
+    tokenize(const char *s, size_t len, bool expand = false);
+
+    /**
      * Create a token from the given "kind" and value.
      *
      * @param kind TODO

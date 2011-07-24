@@ -37,6 +37,14 @@ struct ScopedPyObject
     ~ScopedPyObject() {Py_XDECREF(m_ref);}
     operator PyObject* () {return m_ref;}
 
+    // Release the return object.
+    PyObject* release()
+    {
+        PyObject *ref = m_ref;
+        m_ref = NULL;
+        return ref;
+    }
+
 private:
     PyObject *m_ref;
 };

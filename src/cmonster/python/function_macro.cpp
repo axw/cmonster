@@ -27,6 +27,7 @@ SOFTWARE.
 #include <Python.h>
 
 #include "function_macro.hpp"
+#include "preprocessor.hpp"
 #include "scoped_pyobject.hpp"
 #include "token.hpp"
 
@@ -89,6 +90,33 @@ FunctionMacro::operator()(
     if (py_result == Py_None)
         return result;
 
+    // Is it a string? If so, tokenize it.
+    if (PyUnicode_Check(py_result))
+    {
+        ScopedPyObject utf8(PyUnicode_AsUTF8String(py_result));
+        if (utf8)
+        {
+            char *u8_chars;
+            Py_ssize_t u8_size;
+            if (PyBytes_AsStringAndSize(utf8, &u8_chars, &u8_size) == -1)
+            {
+                throw std::runtime_error("PyBytes_AsStringAndSize failed");
+            }
+            else
+            {
+                cmonster::core::Preprocessor &pp =
+                    get_preprocessor(m_preprocessor);
+                result = pp.tokenize(u8_chars, u8_size);
+                return result;
+            }
+        }
+        else
+        {
+            throw std::runtime_error("PyUnicode_AsUTF8String failed");
+        }
+    }
+
+    // If it's not a string, it should be a sequence of Token objects.
     if (!PySequence_Check(py_result))
     {
         //PyErr_SetString(
@@ -108,16 +136,7 @@ FunctionMacro::operator()(
         for (Py_ssize_t i = 0; i < seqlen; ++i)
         {
             ScopedPyObject token_ = PySequence_GetItem(py_result, i);
-            /*if (PyUnicode_Check(token_))
-            {
-                // TODO tokenise string.
-                result.push_back(cmonster::core::token_type(
-                    boost::wave::T_STRINGLIT,
-                    "TODO",
-                    cmonster::core::token_type::position_type("?")
-                ));
-            }
-            else */if (PyObject_TypeCheck(token_, get_token_type()))
+            if (PyObject_TypeCheck(token_, get_token_type()))
             {
                 Token *token = (Token*)(PyObject*)token_;
                 result.push_back(get_token(token));

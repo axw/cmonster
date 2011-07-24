@@ -52,6 +52,25 @@ SOFTWARE.
 
 namespace {
 
+struct FileChangePPCallback : public clang::PPCallbacks
+{
+    FileChangePPCallback() : depth(0), location() {}
+    void FileChanged(clang::SourceLocation Loc,
+                     clang::PPCallbacks::FileChangeReason Reason,
+                     clang::SrcMgr::CharacteristicKind FileType)
+    {
+        location = Loc;
+        switch (Reason)
+        {
+            case clang::PPCallbacks::EnterFile: ++depth; break;
+            case clang::PPCallbacks::ExitFile: --depth; break;
+            default: break;
+        }
+    }
+    unsigned int depth;
+    clang::SourceLocation location;
+};
+
 /**
  * A clang PragmaHandler implementation that stores the pragma arguments. These
  * will later be consumed by a DynamicPragmaHandler.
@@ -188,6 +207,11 @@ public:
         // just one pragma, but I couldn't think of it.
         token_saver = new TokenSaverPragmaHandler;
         compiler.getPreprocessor().AddPragmaHandler(token_saver);
+
+        // Add preprocessing callbacks so we know when a file is entered or
+        // exited.
+        file_change_callback = new FileChangePPCallback;
+        compiler.getPreprocessor().addPPCallbacks(file_change_callback);
     }
 
     /**
@@ -341,6 +365,7 @@ public:
 
     clang::CompilerInstance compiler;
     TokenSaverPragmaHandler *token_saver;
+    FileChangePPCallback    *file_change_callback;
 };
 
 class TokenIteratorImpl : public TokenIterator
@@ -421,6 +446,60 @@ TokenIterator* Preprocessor::create_iterator()
     // Start preprocessing.
     m_impl->compiler.getPreprocessor().EnterMainSourceFile();
     return new TokenIteratorImpl(m_impl->compiler.getPreprocessor());
+}
+
+std::vector<cmonster::core::Token>
+Preprocessor::tokenize(const char *s, size_t len, bool expand)
+{
+    std::vector<cmonster::core::Token> result;
+    if (!s || !len)
+        return result;
+
+    // Create a memory buffer.
+    std::auto_ptr<llvm::MemoryBuffer> mem(
+        llvm::MemoryBuffer::getMemBufferCopy(
+            llvm::StringRef(s, len), "<generated>"));
+
+    // Create a file ID and enter it into the preprocessor.
+    clang::Preprocessor &pp = m_impl->compiler.getPreprocessor();
+    clang::SourceManager &srcmgr = m_impl->compiler.getSourceManager();
+    clang::FileID fid = srcmgr.createFileIDForMemBuffer(mem.release());
+
+    // Record the current include depth, and enter the file. We can use the
+    // file change callback to (a) ensure the memory buffer file was entered,
+    // and (b) to determine when to stop lexing.
+    //
+    // Unfortunately the use of a "file" means the preprocessor output is
+    // littered with line markers. It would be nice if we could get rid of
+    // them.
+    const unsigned int old_depth = m_impl->file_change_callback->depth;
+    pp.EnterSourceFile(fid, pp.GetCurDirLookup(), clang::SourceLocation());
+
+    // Did something go awry when trying to enter the file? Bail out.
+    if (m_impl->file_change_callback->depth <= old_depth)
+        return result;
+
+    // Lex until we leave the file. We peek the next token, and if it's
+    // eof or from a different file, bail out.
+    //
+    // Note: I was originally using the file change PP callback's depth
+    // tracking to handle this, but I ran into a problem. The "ExitFile"
+    // callback is not invoked until the next token is lexed, so we would
+    // have to backtrack once we've exited the file. I found that if I had
+    // two macros, one calling the other, both using tokenize, the second
+    // entry to tokenize would start lexing the backtracked tokens before
+    // the tokens from the memory buffer.
+    clang::Token tok;
+    while (pp.LookAhead(0).isNot(clang::tok::eof) &&
+           srcmgr.getFileID(pp.LookAhead(0).getLocation()) == fid)
+    {
+        if (expand)
+            pp.Lex(tok);
+        else
+            pp.LexUnexpandedToken(tok);
+        result.push_back(cmonster::core::Token(pp, tok));
+    }
+    return result;
 }
 
 Token* Preprocessor::create_token(clang::tok::TokenKind kind,
