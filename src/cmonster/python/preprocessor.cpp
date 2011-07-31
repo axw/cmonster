@@ -26,6 +26,7 @@ SOFTWARE.
 
 #include <Python.h>
 #include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <iostream>
 
@@ -167,38 +168,68 @@ Preprocessor_add_include_path(Preprocessor* self, PyObject *args)
 static PyObject* Preprocessor_define(Preprocessor* self, PyObject *args)
 {
     PyObject *macro;
-    PyObject *predefined = Py_False;
-    if (!PyArg_ParseTuple(args, "O|O:define", &macro, &predefined))
+    PyObject *value = NULL;
+    if (!PyArg_ParseTuple(args, "O|O:define", &macro, &value))
         return NULL;
 
     try
     {
         // First check if it's a string. If so, convert it to UTF-8 and define
-        // the macro as per usual.
+        // an object-like macro.
         if (PyUnicode_Check(macro))
         {
-            PyObject *utf8 = PyUnicode_AsUTF8String(macro);
-            if (utf8)
+            ScopedPyObject utf8_name(PyUnicode_AsUTF8String(macro));
+            const char *macro_name;
+            if (utf8_name && (macro_name = PyBytes_AsString(utf8_name)))
             {
-                const char *macro = PyBytes_AsString(utf8);
-                try
+                if (value)
                 {
-                    if (macro)
+                    if (PyUnicode_Check(value)) // define(name, value)
                     {
-                        self->preprocessor->define(
-                            macro, PyObject_IsTrue(predefined));
+                        ScopedPyObject utf8_value(
+                            PyUnicode_AsUTF8String(value));
+                        const char *macro_value;
+                        if (utf8_value &&
+                            (macro_value = PyBytes_AsString(utf8_value)))
+                        {
+                            // Value specified:
+                            //     "#define macro_name macro_value".
+                            self->preprocessor->define(
+                                macro_name, macro_value);
+                        }
+                        else
+                        {
+                            return NULL;
+                        }
                     }
-                    Py_DECREF(utf8);
+                    else if (PyCallable_Check(value)) // define(name, callable)
+                    {
+                        boost::shared_ptr<cmonster::core::FunctionMacro>
+                            function(new cmonster::python::FunctionMacro(
+                                self, value));
+                        self->preprocessor->define(macro_name, function);
+                    }
+                    else
+                    {
+                        PyErr_SetString(PyExc_TypeError,
+                            "expected string or callable for value argument");
+                        return NULL;
+                    }
                 }
-                catch (...)
+                else
                 {
-                    Py_DECREF(utf8);
-                    throw;
+                    // No value specified: "#define macro_name".
+                    self->preprocessor->define(macro_name);
                 }
             }
+            else
+            {
+                return NULL;
+            }
         }
-        else if (PyCallable_Check(macro))
+        else if (PyCallable_Check(macro)) // define(callable)
         {
+            // TODO ensure "value" was not specified.
             const char *name = PyEval_GetFuncName(macro);
             boost::shared_ptr<cmonster::core::FunctionMacro>
                 function(new cmonster::python::FunctionMacro(self, macro));
@@ -265,14 +296,13 @@ static PyObject* Preprocessor_tokenize(Preprocessor* self, PyObject *args)
 {
     const char *s = NULL;
     Py_ssize_t len;
-    PyObject *expand = Py_False;
-    if (!PyArg_ParseTuple(args, "s#|O:tokenize", &s, &len, &expand))
+    if (!PyArg_ParseTuple(args, "s#:tokenize", &s, &len))
         return NULL;
 
     try
     {
         std::vector<cmonster::core::Token> result =
-            self->preprocessor->tokenize(s, len, PyObject_IsTrue(expand));
+            self->preprocessor->tokenize(s, len);
 
         ScopedPyObject tuple(PyTuple_New(result.size()));
         if (!tuple)
@@ -307,11 +337,66 @@ static PyObject* Preprocessor_preprocess(Preprocessor* self, PyObject *args)
     long fd;
     if (!PyArg_ParseTuple(args, "l:preprocess", &fd))
         return NULL;
-
     self->preprocessor->preprocess(fd);
-
     Py_INCREF(Py_None);
     return Py_None;
+}
+
+static PyObject* Preprocessor_next(Preprocessor* self, PyObject *args)
+{
+    PyObject *expand = Py_True;
+    if (!PyArg_ParseTuple(args, "|O:next", &expand))
+        return NULL;
+    std::auto_ptr<cmonster::core::Token> token(
+        self->preprocessor->next(PyObject_IsTrue(expand)));
+    if (token.get())
+    {
+        return (PyObject*)create_token(self, *token);
+    }
+    else
+    {
+        PyErr_SetString(PyExc_RuntimeError,
+            "Internal error: Preprocessor returned NULL");
+        return NULL;
+    }
+}
+
+PyObject* Preprocessor_format_tokens(Preprocessor *self, PyObject *args)
+{
+    PyObject *tokens;
+    if (!PyArg_ParseTuple(args, "O:format_tokens", &tokens))
+        return NULL;
+
+    ScopedPyObject iter(PyObject_GetIter(tokens));
+    if (!iter)
+        return NULL;
+
+    // Iterate through the tokens, accumulating in a vector.
+    std::vector<cmonster::core::Token> token_vector;
+    for (;;)
+    {
+        ScopedPyObject item(PyIter_Next(iter));
+        if (!item)
+        {
+            if (PyErr_Occurred())
+                return NULL;
+            else
+                break;
+        }
+        if (!PyObject_TypeCheck(item, get_token_type()))
+        {
+            PyErr_SetString(PyExc_TypeError, "Expected sequence of tokens");
+            return NULL;
+        }
+        token_vector.push_back(get_token((Token*)(PyObject*)item));
+    }
+
+    // Format the sequence of tokens.
+    std::ostringstream ss;
+    if (!token_vector.empty())
+        self->preprocessor->format(ss, token_vector);
+    std::string formatted = ss.str();
+    return PyUnicode_FromStringAndSize(formatted.data(), formatted.size());
 }
 
 static PyMethodDef Preprocessor_methods[] =
@@ -326,6 +411,10 @@ static PyMethodDef Preprocessor_methods[] =
      (PyCFunction)&Preprocessor_tokenize, METH_VARARGS},
     {(char*)"preprocess",
      (PyCFunction)&Preprocessor_preprocess, METH_VARARGS},
+    {(char*)"next",
+     (PyCFunction)&Preprocessor_next, METH_VARARGS},
+    {(char*)"format_tokens",
+     (PyCFunction)&Preprocessor_format_tokens, METH_VARARGS},
     {NULL}
 };
 

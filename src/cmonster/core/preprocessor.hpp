@@ -23,6 +23,7 @@ SOFTWARE.
 #ifndef _CSNAKE_CORE_PREPROCESSOR_HPP
 #define _CSNAKE_CORE_PREPROCESSOR_HPP
 
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -59,14 +60,13 @@ public:
     //bool add_include_path(std::string const& path, bool sysinclude = true);
 
     /**
-     * Define a plain old macro.
+     * Define a plain old macro. Equivalent to "#define name value".
      *
-     * @param macro The macro string to define.
-     * @param predefined True if the macro is a 'predefined' macro, meaning it
-     *                   can not be undefined.
+     * @param name The name to define.
+     * @param value The value to define the macro to (optional).
      * @return True if the macro was defined successfully.
      */
-    bool define(std::string const& macro, bool predefined = false);
+    bool define(std::string const& name, std::string const& value="");
 
     /**
      * Define a macro that expands by invoking a given callable object.
@@ -106,11 +106,8 @@ public:
      *
      * @param s The string to tokenize.
      * @param len The length of the string to tokenize.
-     * @param expand A boolean flag specifying whether the tokens should be
-     *               expanded before returning. This defaults to false.
      */
-    std::vector<cmonster::core::Token>
-    tokenize(const char *s, size_t len, bool expand = false);
+    std::vector<cmonster::core::Token> tokenize(const char *s, size_t len);
 
     /**
      * Create a token from the given "kind" and value.
@@ -129,6 +126,18 @@ public:
      * @param fd TODO
      */
     void preprocess(long fd);
+
+    /**
+     * Lex the next token in the stream.
+     */
+    Token* next(bool expand = true);
+
+    /**
+     * Format a sequence of tokens.
+     */
+    std::ostream& format(
+        std::ostream &out,
+        std::vector<cmonster::core::Token> const& tokens) const;
 
     //std::string getSpelling(token_type const& tok) const;
 

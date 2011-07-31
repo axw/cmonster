@@ -29,68 +29,8 @@ from ._preprocessor import *
 
 # Define the names to import from this module.
 __all__ = [
-    "Preprocessor", "Token",
+    "Preprocessor", "Token"
 ] + [name for name in locals() if name.startswith("tok_")]
-
-
-# Import Python block classes.
-from .pydef_block import PyDefBlock
-
-
-def _CSNAKE_STR(*tokens):
-    """
-    Built-in macro to create a single string literal token from the
-    concatenation of each of the token values.
-    """
-    if tokens:
-        return [Token(T_STRINGLIT, '"%s"' % "".join(str(t) for t in tokens))]
-
-
-class TokenIteratorWrapper(object):
-    """
-    A class to wrap the native _preprocessor.TokenIterator class. This class
-    provides additional support for the built-in Python block support pragmas.
-    """
-
-    def __init__(self, preprocessor, iterator):
-        self.__preprocessor = preprocessor
-        self.__iterator = iterator
-        self.__pyblocks = []
-
-
-    def __iter__(self):
-        return self
-
-
-    def __next__(self):
-        if self.__iterator:
-            try:
-                return self._get_token()
-            except:
-                self.__iterator = None
-                raise
-        raise StopIteration
-
-
-    def _get_token(self):
-        token = self.__iterator.__next__()
-        while self.__pyblocks:
-            self.__pyblocks[-1].append(token)
-            token = self.__iterator.__next__()
-        return token
-
-
-    def _pydef(self, args):
-        assert not self.__pyblocks, \
-            "pydef macros may not be defined within another Python block"
-        block = PyDefBlock(self.__preprocessor, args)
-        self.__pyblocks.append(block)
-
-
-    def _pyend(self, args):
-        block = self.__pyblocks.pop()
-        # TODO handle nested blocks
-        return block.end()
 
 
 _Preprocessor = Preprocessor # _preprocessor.Preprocessor
@@ -101,20 +41,11 @@ class Preprocessor(_Preprocessor):
 
     def __init__(self, filename, include_paths=()):
         _Preprocessor.__init__(self, filename, include_paths)
-        self.__iterator = None
-
-        # Predefined custom pragmas.
-        self.add_pragma("py_def", self.__pydef)
-        self.add_pragma("py_end", self.__pyend)
 
         # Predefined macros.
         #
-        # _CSNAKE_STR
-        self.define(_CSNAKE_STR)
         # py_def
-        self.define('py_def(fn)=_Pragma(_CSNAKE_STR(wave py_def(fn)))')
-        # py_end
-        self.define('py_end=_Pragma("wave py_end")')
+        self.define('py_def', self.__pydef)
 
 
     def preprocess(self, f=None):
@@ -131,20 +62,28 @@ class Preprocessor(_Preprocessor):
             return _Preprocessor.preprocess(self, f.fileno())
 
 
-    def __iter__(self):
-        return TokenIteratorWrapper(self, _Preprocessor.__iter__(self))
-
-
-    def __pydef(self, *args):
+    def __pydef(self, *signature_tokens):
         """
         Callback method for handling "py_def" pragmas.
         """
-        return self.__iterator._pydef(args)
 
+        # Grab all of the tokens up to and including the "py_end" token.
+        body = []
+        while True:
+            tok = self.next(False) # Get next unexpanded token
+            if tok.token_id == tok_identifier and str(tok) == "py_end":
+                break
+            body.append(tok)
 
-    def __pyend(self, *args):
-        """
-        Callback method for handling "py_end" pragmas.
-        """
-        return self.__iterator._pyend(args)
+        # Format the Python function.
+        signature = self.format_tokens(signature_tokens)
+        body = self.format_tokens(body)
+        function_source = "def %s:\n%s" % (signature, body)
+
+        # Compile the Python function.
+        code = compile(function_source, "<cmonster>", "exec")
+        locals_ = {}
+        eval(code, globals(), locals_)
+        fn = locals_[str(signature_tokens[0])]
+        self.define(fn)
 

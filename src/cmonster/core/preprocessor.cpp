@@ -46,11 +46,27 @@ SOFTWARE.
 #include <iterator>
 #include <list>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 
 ///////////////////////////////////////////////////////////////////////////////
 
 namespace {
+
+struct null_deleter {
+    void operator()(const void *) {}
+};
+
+struct PreprocessorResetter
+{
+    PreprocessorResetter(
+        clang::CompilerInstance &compiler, clang::Preprocessor &pp)
+      : m_compiler(compiler), m_pp(pp) {}
+    ~PreprocessorResetter() {m_compiler.setPreprocessor(&m_pp);}
+private:
+    clang::CompilerInstance &m_compiler;
+    clang::Preprocessor &m_pp;
+};
 
 struct FileChangePPCallback : public clang::PPCallbacks
 {
@@ -115,7 +131,8 @@ struct DynamicPragmaHandler : public clang::PragmaHandler
                       clang::PragmaIntroducerKind Introducer,
                       clang::Token &FirstToken)
     {
-        // Discard the tokens (there shouldn't be any before 'eod').
+        // Discard remaining directive tokens (there shouldn't be any before
+        // 'eod').
         clang::Token token;
         for (PP.Lex(token); token.isNot(clang::tok::eod);)
              PP.Lex(token);
@@ -175,6 +192,7 @@ public:
             compiler.getDiagnostics(), target_options));
 
         // Set the language options.
+        // XXX make this configurable?
         compiler.getLangOpts().CPlusPlus = 1;
 
         // Configure the include paths.
@@ -215,6 +233,69 @@ public:
     }
 
     /**
+     * Defines a simple macro.
+     */
+    bool
+    add_macro_definition(
+        std::string const& name,
+        std::vector<cmonster::core::Token> const& value_tokens,
+        std::vector<std::string> const& args, bool is_function)
+    {
+        clang::Preprocessor &pp = compiler.getPreprocessor();
+        clang::IdentifierInfo *macro_identifier = pp.getIdentifierInfo(name);
+        clang::MacroInfo *macro = pp.AllocateMacroInfo(clang::SourceLocation());
+
+        // Set the function arguments.
+        if (is_function)
+        {
+            macro->setIsFunctionLike();
+            if (!args.empty())
+            {
+                unsigned int n_args = args.size();
+                if (args.back() == "...")
+                {
+                    macro->setIsC99Varargs();
+                    --n_args;
+                }
+                std::vector<clang::IdentifierInfo*>
+                    arg_identifiers(args.size());
+                for (unsigned int i = 0; i < n_args; ++i)
+                    arg_identifiers[i] = pp.getIdentifierInfo(args[i]);
+                if (macro->isC99Varargs())
+                    arg_identifiers.back() =
+                        pp.getIdentifierInfo("__VA_ARGS__");
+                macro->setArgumentList(
+                    &arg_identifiers[0], arg_identifiers.size(),
+                    pp.getPreprocessorAllocator());
+            }
+        }
+
+        // Set the macro body.
+        if (!value_tokens.empty())
+        {
+            for (std::vector<cmonster::core::Token>::const_iterator
+                     iter = value_tokens.begin();
+                 iter != value_tokens.end(); ++iter)
+                macro->AddTokenToBody(iter->getToken());
+            macro->setDefinitionEndLoc(
+                value_tokens.back().getToken().getLocation());
+        }
+
+        // Is there an existing macro which is different? Then don't define the
+        // new one.
+        clang::MacroInfo *existing_macro = pp.getMacroInfo(macro_identifier);
+        if (existing_macro)
+        {
+            bool result = macro->isIdenticalTo(*existing_macro, pp);
+            macro->Destroy();
+            return result;
+        }
+
+        pp.setMacroInfo(macro_identifier, macro);
+        return true;
+    }
+
+    /**
      * Defines a variadic macro for the given name, and stores a function which
      * will be invoked for the replacement.
      */
@@ -226,8 +307,8 @@ public:
             clang::Preprocessor &pp = compiler.getPreprocessor();
 
             // Get the IdentifierInfo for the macro name.
-            clang::IdentifierInfo *macro_identifier = pp.getIdentifierInfo(
-                llvm::StringRef(name.c_str(), name.size()));
+            clang::IdentifierInfo *macro_identifier =
+                pp.getIdentifierInfo(name);
 
             // Make sure the macro isn't already defined?
             clang::MacroInfo *macro = pp.getMacroInfo(macro_identifier);
@@ -313,7 +394,6 @@ public:
 
             // Add the macro to the preprocessor.
             pp.setMacroInfo(macro_identifier, macro);
-            //pp.DumpMacro(*macro);
             return true;
         }
         return false;
@@ -363,7 +443,7 @@ public:
     }
 #endif
 
-    clang::CompilerInstance compiler;
+    clang::CompilerInstance  compiler;
     TokenSaverPragmaHandler *token_saver;
     FileChangePPCallback    *file_change_callback;
 };
@@ -409,11 +489,64 @@ bool Preprocessor::add_include_path(std::string const& path, bool sysinclude)
 }
 #endif
 
-bool Preprocessor::define(std::string const& macro, bool predefined)
+bool Preprocessor::define(std::string const& name, std::string const& value)
 {
-    return false;
-    // TODO
-    //return m_impl->add_macro_definition(macro, predefined);
+    // Tokenize the value.
+    std::vector<cmonster::core::Token> value_tokens;
+    if (!value.empty())
+        value_tokens = tokenize(value.c_str(), value.size());
+
+    // TODO move this to a utility function somewhere.
+    // Check if it's a function or an object-like macro.
+    std::vector<std::string> arg_names;
+    if (!name.empty() && name[name.size()-1] == ')')
+    {
+        size_t lparen = name.find('(');
+        if (lparen == std::string::npos)
+            throw std::invalid_argument(
+                "Name ends with ')', but has no matching '('");
+        // Split the args by commas, stripping whiespace.
+        size_t start = lparen + 1;
+        const size_t rparen = name.size() - 1;
+        while (start < rparen)
+        {
+            while (start < rparen && name[start] == ' ')
+                ++start;
+            if (name[start] == ',')
+            {
+                std::stringstream ss;
+                ss << start;
+                throw std::invalid_argument(
+                    "Expected character other than ',' in string '" + name +
+                    "', column: " + ss.str());
+            }
+
+            size_t comma = name.find(',', start+1);
+            if (comma == std::string::npos)
+            {
+                size_t end = rparen - 1;
+                while (end > start && name[end] == ' ')
+                    --end;
+                arg_names.push_back(name.substr(start, end-start+1));
+                start = rparen;
+            }
+            else
+            {
+                size_t end = comma - 1;
+                while (end > start && name[end] == ' ')
+                    --end;
+                arg_names.push_back(name.substr(start, end-start+1));
+                start = comma + 1;
+            }
+        }
+        return m_impl->add_macro_definition(
+            name.substr(0, lparen), value_tokens, arg_names, true);
+    }
+    else
+    {
+        return m_impl->add_macro_definition(
+            name, value_tokens, std::vector<std::string>(), false);
+    }
 }
 
 bool Preprocessor::define(std::string const& name,
@@ -449,11 +582,22 @@ TokenIterator* Preprocessor::create_iterator()
 }
 
 std::vector<cmonster::core::Token>
-Preprocessor::tokenize(const char *s, size_t len, bool expand)
+Preprocessor::tokenize(const char *s, size_t len)
 {
     std::vector<cmonster::core::Token> result;
     if (!s || !len)
         return result;
+
+    // If the main preprocessor hasn't yet been entered, create a temporary
+    // one to lex from.
+    clang::Preprocessor &old_pp = m_impl->compiler.getPreprocessor();
+    PreprocessorResetter pp_resetter(m_impl->compiler, old_pp);
+    if (m_impl->file_change_callback->depth == 0)
+    {
+        m_impl->compiler.resetAndLeakPreprocessor();
+        m_impl->compiler.createPreprocessor();
+        m_impl->compiler.getPreprocessor().EnterMainSourceFile();
+    }
 
     // Create a memory buffer.
     std::auto_ptr<llvm::MemoryBuffer> mem(
@@ -463,6 +607,8 @@ Preprocessor::tokenize(const char *s, size_t len, bool expand)
     // Create a file ID and enter it into the preprocessor.
     clang::Preprocessor &pp = m_impl->compiler.getPreprocessor();
     clang::SourceManager &srcmgr = m_impl->compiler.getSourceManager();
+
+    // Transfer ownership of the memory buffer to the source manager.
     clang::FileID fid = srcmgr.createFileIDForMemBuffer(mem.release());
 
     // Record the current include depth, and enter the file. We can use the
@@ -476,7 +622,7 @@ Preprocessor::tokenize(const char *s, size_t len, bool expand)
     pp.EnterSourceFile(fid, pp.GetCurDirLookup(), clang::SourceLocation());
 
     // Did something go awry when trying to enter the file? Bail out.
-    if (m_impl->file_change_callback->depth <= old_depth)
+    if ((&pp == &old_pp) && m_impl->file_change_callback->depth <= old_depth)
         return result;
 
     // Lex until we leave the file. We peek the next token, and if it's
@@ -493,13 +639,76 @@ Preprocessor::tokenize(const char *s, size_t len, bool expand)
     while (pp.LookAhead(0).isNot(clang::tok::eof) &&
            srcmgr.getFileID(pp.LookAhead(0).getLocation()) == fid)
     {
-        if (expand)
-            pp.Lex(tok);
-        else
-            pp.LexUnexpandedToken(tok);
+        pp.LexUnexpandedToken(tok);
+
+        // If we've had to create another preprocessor, then make sure we
+        // recreate the IdentifierInfo objects in the existing preprocessor.
+        // Everything else (importantly, the source manager) is shared between
+        // the two preprocessor objects.
+        if (&pp != &old_pp && tok.isAnyIdentifier())
+        {
+            clang::IdentifierInfo *II = tok.getIdentifierInfo();
+            if (II)
+                tok.setIdentifierInfo(old_pp.getIdentifierInfo(II->getName()));
+        }
         result.push_back(cmonster::core::Token(pp, tok));
     }
     return result;
+}
+
+Token* Preprocessor::next(bool expand)
+{
+    clang::Preprocessor &pp = m_impl->compiler.getPreprocessor();
+    clang::Token tok;
+    if (expand)
+        pp.Lex(tok);
+    else
+        pp.LexUnexpandedToken(tok);
+    return new Token(m_impl->compiler.getPreprocessor(), tok);
+}
+
+// XXX it would be nice to just use Clang's "DoPrintPreprocessedInput",
+// but it forces us to "enter the main source file", which means we have
+// to create a whole new preprocessor from scratch. That might be the
+// way to go anyway... we'll see how we go.
+std::ostream& Preprocessor::format(
+    std::ostream &out,
+    std::vector<cmonster::core::Token> const& tokens) const
+{
+    unsigned int current_line = 0, current_column = 1;
+    clang::SourceManager const& sm = m_impl->compiler.getSourceManager();
+    for (std::vector<cmonster::core::Token>::const_iterator
+             iter = tokens.begin(); iter != tokens.end(); ++iter)
+    {
+        Token const& token = *iter;
+        clang::SourceLocation loc = token.getToken().getLocation();
+        clang::PresumedLoc ploc = sm.getPresumedLoc(loc);
+        if (ploc.isValid())
+        {
+            unsigned int line = ploc.getLine();
+            unsigned int column = ploc.getColumn();
+            if (line > current_line)
+            {
+                // Lines are 1-based, so we use zero to mean that we haven't
+                // yet processed any tokens.
+                if (current_line > 0)
+                {
+                    out << std::string(line-current_line, '\n');
+                    current_column = 1;
+                }
+                current_line = line;
+            }
+            if (column > current_column)
+            {
+                out << std::string(column-current_column, ' ');
+                current_column = column;
+            }
+            out << token;
+            // TODO verify exactly getLength() chars were written
+            current_column += token.getToken().getLength();
+        }
+    }
+    return out;
 }
 
 Token* Preprocessor::create_token(clang::tok::TokenKind kind,
