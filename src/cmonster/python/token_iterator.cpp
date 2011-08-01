@@ -28,6 +28,7 @@ SOFTWARE.
 #include <stdexcept>
 #include <iostream>
 
+#include "exception.hpp"
 #include "token_iterator.hpp"
 #include "token.hpp"
 #include "preprocessor.hpp"
@@ -82,6 +83,10 @@ static PyObject* TokenIterator_iternext(TokenIterator *self)
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
         }
+        catch (python_exception const& e)
+        {
+            return NULL;
+        }
         catch (...)
         {
             PyErr_SetNone(PyExc_RuntimeError);
@@ -128,6 +133,12 @@ TokenIterator* create_iterator(Preprocessor *preprocessor)
         catch (std::exception const& e)
         {
             PyErr_SetString(PyExc_RuntimeError, e.what());
+            PyObject_Del(iter);
+            return NULL;
+        }
+        catch (python_exception const& e)
+        {
+            PyObject_Del(iter);
             return NULL;
         }
         catch (...)

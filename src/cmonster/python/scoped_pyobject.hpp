@@ -20,8 +20,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CSNAKE_PYTHON_SCOPED_PYOBJECT_HPP
-#define _CSNAKE_PYTHON_SCOPED_PYOBJECT_HPP
+#ifndef _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
+#define _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
 
 /* Define this to ensure only the limited API is used, so we can ensure forward
  * binary compatibility. */

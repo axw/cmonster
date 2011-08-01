@@ -30,6 +30,7 @@ SOFTWARE.
 #include <stdexcept>
 #include <iostream>
 
+#include "exception.hpp"
 #include "function_macro.hpp"
 #include "preprocessor.hpp"
 #include "scoped_pyobject.hpp"
@@ -51,7 +52,24 @@ struct Preprocessor
 
 static PyObject* Preprocessor_iter(Preprocessor *pp)
 {
-    return (PyObject*)create_iterator(pp);
+    try
+    {
+        return (PyObject*)create_iterator(pp);
+    }
+    catch (std::exception const& e)
+    {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (python_exception const& e)
+    {
+        return NULL;
+    }
+    catch (...)
+    {
+        PyErr_SetNone(PyExc_RuntimeError);
+        return NULL;
+    }
 }
 
 static void Preprocessor_dealloc(Preprocessor* self)
@@ -127,6 +145,9 @@ Preprocessor_init(Preprocessor *self, PyObject *args, PyObject *kwds)
     catch (std::exception const& e)
     {
         PyErr_SetString(PyExc_RuntimeError, e.what());
+    }
+    catch (python_exception const& e)
+    {
     }
     catch (...)
     {
@@ -246,9 +267,13 @@ static PyObject* Preprocessor_define(Preprocessor* self, PyObject *args)
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
+    catch (python_exception const& e)
+    {
+        return NULL;
+    }
     catch (...)
     {
-        PyErr_SetString(PyExc_RuntimeError, "Unknown error occurred");
+        PyErr_SetNone(PyExc_RuntimeError);
         return NULL;
     }
 
@@ -279,15 +304,18 @@ static PyObject* Preprocessor_add_pragma(Preprocessor* self, PyObject *args)
     }
     catch (std::exception const& e)
     {
-        //PyErr_SetString(DatabaseError, e.what());
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (python_exception const& e)
+    {
         return NULL;
     }
     catch (...)
     {
-        //PyErr_SetString(DatabaseError, "Unknown error occurred");
+        PyErr_SetNone(PyExc_RuntimeError);
         return NULL;
     }
-
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -319,15 +347,18 @@ static PyObject* Preprocessor_tokenize(Preprocessor* self, PyObject *args)
     }
     catch (std::exception const& e)
     {
-        //PyErr_SetString(DatabaseError, e.what());
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (python_exception const& e)
+    {
         return NULL;
     }
     catch (...)
     {
-        //PyErr_SetString(DatabaseError, "Unknown error occurred");
+        PyErr_SetNone(PyExc_RuntimeError);
         return NULL;
     }
-
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -337,7 +368,26 @@ static PyObject* Preprocessor_preprocess(Preprocessor* self, PyObject *args)
     long fd;
     if (!PyArg_ParseTuple(args, "l:preprocess", &fd))
         return NULL;
-    self->preprocessor->preprocess(fd);
+    try
+    {
+        self->preprocessor->preprocess(fd);
+    }
+    catch (std::exception const& e)
+    {
+        if (!PyErr_Occurred())
+            PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (python_exception const& e)
+    {
+        return NULL;
+    }
+    catch (...)
+    {
+        if (!PyErr_Occurred())
+            PyErr_SetNone(PyExc_RuntimeError);
+        return NULL;
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -347,16 +397,33 @@ static PyObject* Preprocessor_next(Preprocessor* self, PyObject *args)
     PyObject *expand = Py_True;
     if (!PyArg_ParseTuple(args, "|O:next", &expand))
         return NULL;
-    std::auto_ptr<cmonster::core::Token> token(
-        self->preprocessor->next(PyObject_IsTrue(expand)));
-    if (token.get())
+    try
     {
-        return (PyObject*)create_token(self, *token);
+        std::auto_ptr<cmonster::core::Token> token(
+            self->preprocessor->next(PyObject_IsTrue(expand)));
+        if (token.get())
+        {
+            return (PyObject*)create_token(self, *token);
+        }
+        else
+        {
+            PyErr_SetString(PyExc_RuntimeError,
+                "Internal error: Preprocessor returned NULL");
+            return NULL;
+        }
     }
-    else
+    catch (std::exception const& e)
     {
-        PyErr_SetString(PyExc_RuntimeError,
-            "Internal error: Preprocessor returned NULL");
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (python_exception const& e)
+    {
+        return NULL;
+    }
+    catch (...)
+    {
+        PyErr_SetNone(PyExc_RuntimeError);
         return NULL;
     }
 }
@@ -371,32 +438,49 @@ PyObject* Preprocessor_format_tokens(Preprocessor *self, PyObject *args)
     if (!iter)
         return NULL;
 
-    // Iterate through the tokens, accumulating in a vector.
-    std::vector<cmonster::core::Token> token_vector;
-    for (;;)
+    try
     {
-        ScopedPyObject item(PyIter_Next(iter));
-        if (!item)
+        // Iterate through the tokens, accumulating in a vector.
+        std::vector<cmonster::core::Token> token_vector;
+        for (;;)
         {
-            if (PyErr_Occurred())
+            ScopedPyObject item(PyIter_Next(iter));
+            if (!item)
+            {
+                if (PyErr_Occurred())
+                    return NULL;
+                else
+                    break;
+            }
+            if (!PyObject_TypeCheck(item, get_token_type()))
+            {
+                PyErr_SetString(PyExc_TypeError, "Expected sequence of tokens");
                 return NULL;
-            else
-                break;
+            }
+            token_vector.push_back(get_token((Token*)(PyObject*)item));
         }
-        if (!PyObject_TypeCheck(item, get_token_type()))
-        {
-            PyErr_SetString(PyExc_TypeError, "Expected sequence of tokens");
-            return NULL;
-        }
-        token_vector.push_back(get_token((Token*)(PyObject*)item));
-    }
 
-    // Format the sequence of tokens.
-    std::ostringstream ss;
-    if (!token_vector.empty())
-        self->preprocessor->format(ss, token_vector);
-    std::string formatted = ss.str();
-    return PyUnicode_FromStringAndSize(formatted.data(), formatted.size());
+        // Format the sequence of tokens.
+        std::ostringstream ss;
+        if (!token_vector.empty())
+            self->preprocessor->format(ss, token_vector);
+        std::string formatted = ss.str();
+        return PyUnicode_FromStringAndSize(formatted.data(), formatted.size());
+    }
+    catch (std::exception const& e)
+    {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (python_exception const& e)
+    {
+        return NULL;
+    }
+    catch (...)
+    {
+        PyErr_SetNone(PyExc_RuntimeError);
+        return NULL;
+    }
 }
 
 static PyMethodDef Preprocessor_methods[] =
@@ -441,7 +525,7 @@ static PyType_Spec PreprocessorTypeSpec =
 
 cmonster::core::Preprocessor& get_preprocessor(Preprocessor *wrapper)
 {
-    if (!wrapper) // XXX undefined behaviour?
+    if (!wrapper)
         throw std::invalid_argument("wrapper == NULL");
     return *wrapper->preprocessor;
 }

@@ -26,6 +26,7 @@ SOFTWARE.
 
 #include <Python.h>
 
+#include "exception.hpp"
 #include "scoped_pyobject.hpp"
 #include "token_predicate.hpp"
 #include "token.hpp"
@@ -58,16 +59,12 @@ bool TokenPredicate::operator()(cmonster::core::Token const& token) const
     ScopedPyObject args_tuple =
         Py_BuildValue("(O)", create_token(m_preprocessor, token));
     if (!args_tuple)
-        throw std::runtime_error("Failed to create argument tuple");
+        throw python_exception();
 
     // Call the function.
     ScopedPyObject result = PyObject_Call(m_callable, args_tuple, NULL);
     if (!result)
-    {
-        // TODO raise proper exception
-        PyErr_Print();
-        throw std::runtime_error("buhbow");
-    }
+        throw python_exception();
     return PyObject_IsTrue(result);
 }
 

@@ -26,6 +26,7 @@ SOFTWARE.
 
 #include <Python.h>
 
+#include "exception.hpp"
 #include "function_macro.hpp"
 #include "preprocessor.hpp"
 #include "scoped_pyobject.hpp"
@@ -76,14 +77,25 @@ FunctionMacro::operator()(
         PyTuple_SetItem(args_tuple, i, reinterpret_cast<PyObject*>(token));
     }
 
+    // Set the "preprocessor" global variable.
+    //
+    // XXX How do we create a closure via the C API? It would be better if we
+    // could bind a function to the preprocessor it was created with, when we
+    // define the function.
+    PyObject *globals = PyEval_GetGlobals();
+    if (globals)
+    {
+        PyObject *key = PyUnicode_FromString("preprocessor");
+        if (!key)
+            throw python_exception();
+        Py_INCREF((PyObject*)m_preprocessor);
+        PyDict_SetItem(globals, key, (PyObject*)m_preprocessor);
+    }
+
     // Call the function.
     ScopedPyObject py_result = PyObject_Call(m_callable, args_tuple, NULL);
     if (!py_result)
-    {
-        // TODO raise proper exception
-        PyErr_Print();
-        throw std::runtime_error("buhbow");
-    }
+        throw python_exception();
 
     // Transform the result.
     std::vector<cmonster::core::Token> result;
@@ -100,7 +112,7 @@ FunctionMacro::operator()(
             Py_ssize_t u8_size;
             if (PyBytes_AsStringAndSize(utf8, &u8_chars, &u8_size) == -1)
             {
-                throw std::runtime_error("PyBytes_AsStringAndSize failed");
+                throw python_exception();
             }
             else
             {
@@ -112,24 +124,21 @@ FunctionMacro::operator()(
         }
         else
         {
-            throw std::runtime_error("PyUnicode_AsUTF8String failed");
+            throw python_exception();
         }
     }
 
     // If it's not a string, it should be a sequence of Token objects.
     if (!PySequence_Check(py_result))
     {
-        //PyErr_SetString(
-        //    PyExc_ValueError,
-        throw std::runtime_error(
+        throw python_exception(PyExc_TypeError,
             "macro functions must return a sequence of tokens");
-        //return ;
     }
 
     const Py_ssize_t seqlen = PySequence_Size(py_result);
     if (seqlen == -1)
     {
-        throw std::runtime_error("PySequence_Size failed");
+        throw python_exception();
     }
     else
     {
@@ -144,8 +153,8 @@ FunctionMacro::operator()(
             else
             {
                 // Invalid return value.
-                // TODO flesh out exception description.
-                throw std::runtime_error("Invalid return value");
+                throw python_exception(PyExc_TypeError,
+                    "macro functions must return a sequence of tokens");
             }
         }
     }

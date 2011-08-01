@@ -20,31 +20,44 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CMONSTER_CORE_PREPROCESSOR_ITERATOR_HPP
-#define _CMONSTER_CORE_PREPROCESSOR_ITERATOR_HPP
+#ifndef _CMONSTER_PYTHON_EXCEPTION_HPP
+#define _CMONSTER_PYTHON_EXCEPTION_HPP
 
-#include "token.hpp"
+/* Define this to ensure only the limited API is used, so we can ensure forward
+ * binary compatibility. */
+#define Py_LIMITED_API
+#include <Python.h>
+
+#include <cassert>
 
 namespace cmonster {
-namespace core {
+namespace python {
 
 /**
- * Iterator class, as returned by Preprocessor::preprocess().
+ * An exception class that is thrown when a Python exception has occurred.
+ *
+ * This should not inherit from std::exception, as it should always be left to
+ * percolate right up to the point where the extension meets Python.
  */
-class TokenIterator
+struct python_exception
 {
-public:
-    virtual ~TokenIterator();
+    /**
+     * Default constructor. This should be called when a Python exception has
+     * occurred.
+     */
+    python_exception() {assert(PyErr_Occurred());}
 
     /**
-     * Check if there are any more tokens to be returned.
+     * This constructor may be called to set a Python exception.
      */
-    virtual bool has_next() const throw() = 0;
-
-    /**
-     * Get the next token, subsequently incrementing the iterator.
-     */
-    virtual Token& next() = 0;
+    python_exception(PyObject *type, const char *message = NULL)
+    {
+        assert(!PyErr_Occurred());
+        if (message)
+            PyErr_SetString(type, message);
+        else
+            PyErr_SetNone(type);
+    }
 };
 
 }}

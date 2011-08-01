@@ -30,7 +30,6 @@ SOFTWARE.
 #include "token.hpp"
 
 //#include <boost/unordered/unordered_map.hpp>
-#include <boost/scoped_array.hpp>
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/Utils.h>
 #include <clang/Basic/FileManager.h>
@@ -47,11 +46,26 @@ SOFTWARE.
 #include <list>
 #include <memory>
 #include <sstream>
+#include <setjmp.h>
 #include <stdexcept>
 
 ///////////////////////////////////////////////////////////////////////////////
 
 namespace {
+
+struct ExceptionInfo {
+    ExceptionInfo() : thrown(false), message() {}
+    void check()
+    {
+        if (thrown)
+        {
+            thrown = false;
+            throw std::runtime_error(message);
+        }
+    }
+    bool thrown;
+    std::string message;
+};
 
 struct null_deleter {
     void operator()(const void *) {}
@@ -123,9 +137,11 @@ struct DynamicPragmaHandler : public clang::PragmaHandler
     DynamicPragmaHandler(
         TokenSaverPragmaHandler &token_saver,
         std::string const& name,
-        boost::shared_ptr<cmonster::core::FunctionMacro> const& function)
+        boost::shared_ptr<cmonster::core::FunctionMacro> const& function,
+        ExceptionInfo &einfo)
       : clang::PragmaHandler(llvm::StringRef(name.c_str(), name.size())),
-        m_token_saver(token_saver), m_function(function) {}
+        m_token_saver(token_saver), m_function(function),
+        m_exception_info(einfo) {}
 
     void HandlePragma(clang::Preprocessor &PP,
                       clang::PragmaIntroducerKind Introducer,
@@ -138,33 +154,65 @@ struct DynamicPragmaHandler : public clang::PragmaHandler
              PP.Lex(token);
 
         // Add the result tokens back into the preprocessor.
-        std::vector<cmonster::core::Token> result =
-            (*m_function)(m_token_saver.tokens);
-        if (!result.empty())
+        try
         {
-            // Enter the results back into the preprocessor.
-            clang::Token *tokens(new clang::Token[result.size()]);
-            try
+            std::vector<cmonster::core::Token> result =
+                (*m_function)(m_token_saver.tokens);
+            if (!result.empty())
             {
-                tokens[0] = result[0].getToken();
-                for (size_t i = 1; i < result.size(); ++i)
+                // Enter the results back into the preprocessor.
+                clang::Token *tokens(new clang::Token[result.size()]);
+                try
                 {
-                    tokens[i] = result[i].getToken();
-                    tokens[i].setFlag(clang::Token::LeadingSpace);
+                    tokens[0] = result[0].getToken();
+                    for (size_t i = 1; i < result.size(); ++i)
+                    {
+                        tokens[i] = result[i].getToken();
+                        tokens[i].setFlag(clang::Token::LeadingSpace);
+                    }
                 }
+                catch (...)
+                {
+                    delete [] tokens;
+                    throw;
+                }
+                PP.EnterTokenStream(tokens, result.size(), false, true);
             }
-            catch (...)
-            {
-                delete [] tokens;
-                throw;
-            }
-            PP.EnterTokenStream(tokens, result.size(), false, true);
+            return;
         }
+        catch (std::exception const& e)
+        {
+            // Clang is compiled without exception support, so we have to
+            // resort to some nastiness here. Basically we need to insert an
+            // eof token to force the preprocessor to exit. We'll also store
+            // the error message so we can recover it later.
+            m_exception_info.message = "Exception thrown in pragma handler (";
+            m_exception_info.message.append(
+                std::string(getName().data(), getName().size()));
+            m_exception_info.message.append("): ");
+            m_exception_info.message.append(e.what());
+        }
+        catch (...)
+        {
+            m_exception_info.message = "";
+        }
+
+        // XXX should this be configurable? Allow user to just emit a
+        // diagnostic?
+        //
+        // If we get here, an exception was caught. Let's tell the preprocessor
+        // to stop.
+        clang::Token tok;
+        tok.startToken();
+        tok.setKind(clang::tok::eof);
+        PP.EnterTokenStream(&tok, 1, false, true);
+        m_exception_info.thrown = true;
     }
 
 private:
     TokenSaverPragmaHandler                          &m_token_saver;
     boost::shared_ptr<cmonster::core::FunctionMacro>  m_function;
+    ExceptionInfo                                    &m_exception_info;
 };
 
 } // anonymous namespace
@@ -179,7 +227,7 @@ class PreprocessorImpl
 public:
     PreprocessorImpl(const char *filename,
                      std::vector<std::string> const& includes)
-      : compiler(), token_saver()
+      : compiler(), token_saver(), exception_info()
     {
         // Create diagnostics.
         compiler.createDiagnostics(0, NULL);
@@ -413,12 +461,13 @@ public:
             {
                 compiler.getPreprocessor().AddPragmaHandler(
                     "cmonster", new DynamicPragmaHandler(
-                        *token_saver, name, function));
+                        *token_saver, name, function, exception_info));
             }
             else
             {
                 compiler.getPreprocessor().AddPragmaHandler(
-                    new DynamicPragmaHandler(*token_saver, name, function));
+                    new DynamicPragmaHandler(
+                        *token_saver, name, function, exception_info));
             }
             return true;
         }
@@ -446,6 +495,7 @@ public:
     clang::CompilerInstance  compiler;
     TokenSaverPragmaHandler *token_saver;
     FileChangePPCallback    *file_change_callback;
+    ExceptionInfo            exception_info;
 };
 
 class TokenIteratorImpl : public TokenIterator
@@ -455,6 +505,7 @@ public:
       : m_pp(pp), m_current(pp), m_next()
     {
         m_pp.Lex(m_next);
+        // m_impl->exception_info.check(); // TODO
     }
 
     bool has_next() const throw()
@@ -466,6 +517,7 @@ public:
     {
         m_current.setToken(m_next);
         m_pp.Lex(m_next);
+        // m_impl->exception_info.check(); // TODO
         return m_current;
     }
 
@@ -572,6 +624,7 @@ void Preprocessor::preprocess(long fd)
 
     clang::DoPrintPreprocessedInput(
         m_impl->compiler.getPreprocessor(), &out, opts);
+    m_impl->exception_info.check();
 }
 
 TokenIterator* Preprocessor::create_iterator()
@@ -664,6 +717,7 @@ Token* Preprocessor::next(bool expand)
         pp.Lex(tok);
     else
         pp.LexUnexpandedToken(tok);
+    // m_impl->exception_info.check(); // TODO
     return new Token(m_impl->compiler.getPreprocessor(), tok);
 }
 
