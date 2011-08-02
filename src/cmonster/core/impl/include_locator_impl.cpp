@@ -71,18 +71,28 @@ IncludeLocatorDiagnosticClient::HandleDiagnostic(
                         m_include_fid = fid;
                         m_include_loc = loc;
 
-                        // TODO Have a canonical definition of the macro name
-                        // somewhere (probably this class's header file).
+                        // TODO Have a canonical definition of the pragma name
+                        // somewhere (probably this class's header file). Maybe
+                        // the pragma handler class should also live in this
+                        // file.
                         //
-                        // Emit a "_CMONSTER_INCLUDE" token to tell the
-                        // preprocessor to complete the process.
-                        clang::Token *tok = new clang::Token;
-                        tok->startToken();
-                        tok->setKind(clang::tok::identifier);
-                        m_pp.CreateString("_CMONSTER_INCLUDE", 17, *tok);
-                        tok->setIdentifierInfo(m_pp.getIdentifierInfo(
-                            llvm::StringRef("_CMONSTER_INCLUDE", 17)));
-                        m_pp.EnterTokenStream(tok, 1, false, true);
+                        // _Pragma("cmonster_include")
+                        clang::Token *tok = new clang::Token[4];
+                        tok[0].startToken();
+                        tok[0].setKind(clang::tok::identifier);
+                        m_pp.CreateString("_Pragma", 7, tok[0]);
+                        tok[0].setIdentifierInfo(m_pp.getIdentifierInfo(
+                            llvm::StringRef("_Pragma", 7)));
+                        tok[1].startToken();
+                        tok[1].setKind(clang::tok::l_paren);
+                        m_pp.CreateString("(", 1, tok[1]);
+                        tok[2].startToken();
+                        tok[2].setKind(clang::tok::string_literal);
+                        m_pp.CreateString("\"cmonster_include\"", 18, tok[2]);
+                        tok[3].startToken();
+                        tok[3].setKind(clang::tok::r_paren);
+                        m_pp.CreateString(")", 1, tok[3]);
+                        m_pp.EnterTokenStream(tok, 4, false, true);
 
                         // Finally, we must mark the "last diagnostic" as
                         // ignored so preprocessing continues as usual.

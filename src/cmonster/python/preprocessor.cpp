@@ -157,35 +157,34 @@ Preprocessor_init(Preprocessor *self, PyObject *args, PyObject *kwds)
     return -1;
 }
 
-/*
 static PyObject*
-Preprocessor_add_include_path(Preprocessor* self, PyObject *args)
+Preprocessor_add_include_dir(Preprocessor* self, PyObject *args)
 {
     char *path;
     PyObject *sysinclude = Py_True;
-    if (!PyArg_ParseTuple(args, "s|O:add_include_path", &path, &sysinclude))
+    if (!PyArg_ParseTuple(args, "s|O:add_include_dir", &path, &sysinclude))
         return NULL;
 
     try
     {
-        self->preprocessor->add_include_path(
+        self->preprocessor->add_include_dir(
             path, PyObject_IsTrue(sysinclude));
+        Py_INCREF(Py_None);
+        return Py_None;
     }
     catch (std::exception const& e)
     {
-        //PyErr_SetString(DatabaseError, e.what());
-        return NULL;
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+    }
+    catch (python_exception const& e)
+    {
     }
     catch (...)
     {
-        //PyErr_SetString(DatabaseError, "Unknown error occurred");
-        return NULL;
+        PyErr_SetNone(PyExc_RuntimeError);
     }
-
-    Py_INCREF(Py_None);
-    return Py_None;
+    return NULL;
 }
-*/
 
 static PyObject* Preprocessor_define(Preprocessor* self, PyObject *args)
 {
@@ -522,8 +521,8 @@ PyObject* Preprocessor_set_include_locator(Preprocessor *self, PyObject *args)
 
 static PyMethodDef Preprocessor_methods[] =
 {
-//    {(char*)"add_include_path",
-//     (PyCFunction)&Preprocessor_add_include_path, METH_VARARGS},
+    {(char*)"add_include_dir",
+     (PyCFunction)&Preprocessor_add_include_dir, METH_VARARGS},
     {(char*)"define",
      (PyCFunction)&Preprocessor_define, METH_VARARGS},
     {(char*)"add_pragma",

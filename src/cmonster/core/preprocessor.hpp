@@ -52,13 +52,13 @@ public:
     // void set_language(...)
 
     /**
-     * Add an include path.
+     * Add an include directory.
      *
-     * @param path The include path to add.
-     * @param sysinclude True if path is a system include path.
+     * @param path The include directory path to add.
+     * @param sysinclude True if path is a system include directory.
      * @return True if the include path was added successfully.
      */
-    //bool add_include_path(std::string const& path, bool sysinclude = true);
+    bool add_include_dir(std::string const& path, bool sysinclude = true);
 
     /**
      * Define a plain old macro. Equivalent to "#define name value".

@@ -35,6 +35,7 @@ SOFTWARE.
 #include <clang/Frontend/Utils.h>
 #include <clang/Basic/FileManager.h>
 #include <clang/Basic/TargetInfo.h>
+#include <clang/Lex/HeaderSearch.h>
 #include <clang/Lex/Preprocessor.h>
 #include <clang/Lex/Pragma.h>
 #include <clang/Lex/ScratchBuffer.h>
@@ -290,8 +291,7 @@ public:
         // Set the predefines on the preprocessor.
         std::string predefines = compiler.getPreprocessor().getPredefines();
         predefines.append(
-            "#define _CMONSTER_PRAGMA(...) _Pragma(#__VA_ARGS__)\n"
-            "#define _CMONSTER_INCLUDE _Pragma(\"cmonster_include\")");
+            "#define _CMONSTER_PRAGMA(...) _Pragma(#__VA_ARGS__)");
         compiler.getPreprocessor().setPredefines(predefines);
 
         // Add the "token saver" pragma handler. This will be used to store the
@@ -511,7 +511,6 @@ public:
         return false;
     }
 
-#if 0
     bool add_include_path(std::string const& path, bool sysinclude)
     {
         clang::HeaderSearch &headers =
@@ -520,14 +519,32 @@ public:
         const clang::DirectoryEntry *entry =
             filemgr.getDirectory(llvm::StringRef(path.c_str(), path.size()));
 
-        return false;
-        // TODO
-        //if (sysinclude)
-        //    return m_impl->add_sysinclude_path(path.c_str());
-        //else
-        //    return m_impl->add_include_path(path.c_str());
+        // Take a copy of the existing search paths, and add the new one. If
+        // it's a system path, insert it in after "system_dir_end". If it's a
+        // user path, simply add it to the end of the vector.
+        std::vector<clang::DirectoryLookup> search_paths(
+            headers.search_dir_begin(), headers.search_dir_end());
+        // TODO make sure it's not already in the list.
+        const unsigned int n_quoted = std::distance(
+            headers.quoted_dir_begin(), headers.quoted_dir_end());
+        const unsigned int n_angled = std::distance(
+            headers.angled_dir_begin(), headers.angled_dir_end());
+        if (sysinclude)
+        {
+            clang::DirectoryLookup lookup(
+                entry, clang::SrcMgr::C_System, true, false);
+            search_paths.insert(
+                search_paths.begin() + (n_quoted + n_angled), lookup);
+        }
+        else
+        {
+            clang::DirectoryLookup lookup(
+                entry, clang::SrcMgr::C_User, true, false);
+            search_paths.push_back(lookup);
+        }
+        headers.SetSearchPaths(search_paths, n_quoted, n_quoted+n_angled, false);
+        return true;
     }
-#endif
 
     clang::CompilerInstance         compiler;
     TokenSaverPragmaHandler        *token_saver;          // owned by pp
@@ -572,12 +589,10 @@ Preprocessor::Preprocessor(const char *filename,
                            std::vector<std::string> const& include_paths)
   : m_impl(new PreprocessorImpl(filename, include_paths)) {}
 
-#if 0
-bool Preprocessor::add_include_path(std::string const& path, bool sysinclude)
+bool Preprocessor::add_include_dir(std::string const& path, bool sysinclude)
 {
     return m_impl->add_include_path(path, sysinclude);
 }
-#endif
 
 bool Preprocessor::define(std::string const& name, std::string const& value)
 {
