@@ -20,7 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "function_macro.hpp"
+#include "../function_macro.hpp"
 
 namespace cmonster {
 namespace core {

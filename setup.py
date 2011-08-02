@@ -11,11 +11,13 @@ if "CFLAGS" in cfg_vars:
 _preprocessor_extension = Extension(
     "cmonster._preprocessor",
     [
-        "src/cmonster/core/function_macro.cpp",
-        "src/cmonster/core/preprocessor.cpp",
-        "src/cmonster/core/token_iterator.cpp",
-        "src/cmonster/core/token_predicate.cpp",
-        "src/cmonster/core/token.cpp",
+        "src/cmonster/core/impl/include_locator_impl.cpp",
+        "src/cmonster/core/impl/function_macro.cpp",
+        "src/cmonster/core/impl/preprocessor.cpp",
+        "src/cmonster/core/impl/token_iterator.cpp",
+        "src/cmonster/core/impl/token_predicate.cpp",
+        "src/cmonster/core/impl/token.cpp",
+        "src/cmonster/python/include_locator.cpp",
         "src/cmonster/python/function_macro.cpp",
         "src/cmonster/python/module.cpp",
         "src/cmonster/python/preprocessor.cpp",

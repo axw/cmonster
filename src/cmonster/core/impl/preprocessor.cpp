@@ -23,11 +23,12 @@ SOFTWARE.
 //#undef NDEBUG
 //#include <assert.h>
 
-#include "preprocessor.hpp"
-#include "function_macro.hpp"
-#include "token_iterator.hpp"
-#include "token_predicate.hpp"
-#include "token.hpp"
+#include "../preprocessor.hpp"
+#include "../function_macro.hpp"
+#include "../token_iterator.hpp"
+#include "../token_predicate.hpp"
+#include "../token.hpp"
+#include "include_locator_impl.hpp"
 
 //#include <boost/unordered/unordered_map.hpp>
 #include <clang/Frontend/CompilerInstance.h>
@@ -40,6 +41,7 @@ SOFTWARE.
 #include <llvm/Support/Host.h>
 
 #include <algorithm>
+#include <cassert>
 #include <functional>
 #include <iostream>
 #include <iterator>
@@ -53,7 +55,8 @@ SOFTWARE.
 
 namespace {
 
-struct ExceptionInfo {
+struct ExceptionInfo
+{
     ExceptionInfo() : thrown(false), message() {}
     void check()
     {
@@ -99,6 +102,22 @@ struct FileChangePPCallback : public clang::PPCallbacks
     }
     unsigned int depth;
     clang::SourceLocation location;
+};
+
+struct IncludeLocatorCompletionPragmaHandler : public clang::PragmaHandler
+{
+    IncludeLocatorCompletionPragmaHandler(
+        cmonster::core::IncludeLocatorDiagnosticClient &client)
+      : clang::PragmaHandler(llvm::StringRef("cmonster_include", 16)),
+        m_client(client) {}
+    void HandlePragma(clang::Preprocessor &PP,
+                      clang::PragmaIntroducerKind Introducer,
+                      clang::Token &FirstToken)
+    {
+        m_client.complete();
+    }
+private:
+    cmonster::core::IncludeLocatorDiagnosticClient &m_client;
 };
 
 /**
@@ -227,7 +246,7 @@ class PreprocessorImpl
 public:
     PreprocessorImpl(const char *filename,
                      std::vector<std::string> const& includes)
-      : compiler(), token_saver(), exception_info()
+      : compiler(), token_saver(), exception_info(), include_locator()
     {
         // Create diagnostics.
         compiler.createDiagnostics(0, NULL);
@@ -245,11 +264,17 @@ public:
 
         // Configure the include paths.
         clang::HeaderSearchOptions &hsopts = compiler.getHeaderSearchOpts();
+        hsopts.UseBuiltinIncludes = false;
+        hsopts.UseStandardIncludes = false;
+        hsopts.UseStandardCXXIncludes = false;
         for (std::vector<std::string>::const_iterator iter = includes.begin();
              iter != includes.end(); ++iter)
         {
+            // XXX need to find out the effect of each of the different groups.
+            // e.g. what's the effect of not specifying the "System" group for
+            // system header paths.
             hsopts.AddPath(llvm::StringRef(iter->c_str(), iter->size()),
-                clang::frontend::After, true, false, false);
+                clang::frontend::Angled, true, false, false);
         }
 
         // Create the rest.
@@ -265,7 +290,8 @@ public:
         // Set the predefines on the preprocessor.
         std::string predefines = compiler.getPreprocessor().getPredefines();
         predefines.append(
-            "#define _CMONSTER_PRAGMA(...) _Pragma(#__VA_ARGS__)");
+            "#define _CMONSTER_PRAGMA(...) _Pragma(#__VA_ARGS__)\n"
+            "#define _CMONSTER_INCLUDE _Pragma(\"cmonster_include\")");
         compiler.getPreprocessor().setPredefines(predefines);
 
         // Add the "token saver" pragma handler. This will be used to store the
@@ -278,6 +304,17 @@ public:
         // exited.
         file_change_callback = new FileChangePPCallback;
         compiler.getPreprocessor().addPPCallbacks(file_change_callback);
+
+        // Set the include locator diagnostic client.
+        include_locator = new IncludeLocatorDiagnosticClient(
+            compiler.getPreprocessor(),
+            compiler.getDiagnostics().takeClient());
+        compiler.getDiagnostics().setClient(include_locator);
+
+        // Add an pragma handler for completing an include locator (i.e. to
+        // enter the source file.)
+        compiler.getPreprocessor().AddPragmaHandler(
+            new IncludeLocatorCompletionPragmaHandler(*include_locator));
     }
 
     /**
@@ -492,10 +529,11 @@ public:
     }
 #endif
 
-    clang::CompilerInstance  compiler;
-    TokenSaverPragmaHandler *token_saver;
-    FileChangePPCallback    *file_change_callback;
-    ExceptionInfo            exception_info;
+    clang::CompilerInstance         compiler;
+    TokenSaverPragmaHandler        *token_saver;          // owned by pp
+    FileChangePPCallback           *file_change_callback; // owned by pp
+    ExceptionInfo                   exception_info;
+    IncludeLocatorDiagnosticClient *include_locator;      // owned by pp
 };
 
 class TokenIteratorImpl : public TokenIterator
@@ -634,6 +672,7 @@ TokenIterator* Preprocessor::create_iterator()
     return new TokenIteratorImpl(m_impl->compiler.getPreprocessor());
 }
 
+// XXX should we just be creating a new Lexer?
 std::vector<cmonster::core::Token>
 Preprocessor::tokenize(const char *s, size_t len)
 {
@@ -763,6 +802,13 @@ std::ostream& Preprocessor::format(
         }
     }
     return out;
+}
+
+void
+Preprocessor::set_include_locator(
+    boost::shared_ptr<IncludeLocator> const& locator)
+{
+    m_impl->include_locator->setIncludeLocator(locator);
 }
 
 Token* Preprocessor::create_token(clang::tok::TokenKind kind,

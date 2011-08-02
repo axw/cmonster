@@ -34,6 +34,7 @@ namespace cmonster {
 namespace core {
 
 class FunctionMacro;
+class IncludeLocator;
 class PreprocessorImpl;
 class TokenIterator;
 class TokenPredicate;
@@ -139,7 +140,11 @@ public:
         std::ostream &out,
         std::vector<cmonster::core::Token> const& tokens) const;
 
-    //std::string getSpelling(token_type const& tok) const;
+    /**
+     * Set the preprocessor's "include locator", for locating includes
+     * externally.
+     */
+    void set_include_locator(boost::shared_ptr<IncludeLocator> const& locator);
 
 private:
     boost::shared_ptr<PreprocessorImpl> m_impl;

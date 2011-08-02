@@ -32,6 +32,7 @@ SOFTWARE.
 
 #include "exception.hpp"
 #include "function_macro.hpp"
+#include "include_locator.hpp"
 #include "preprocessor.hpp"
 #include "scoped_pyobject.hpp"
 #include "token_iterator.hpp"
@@ -483,6 +484,42 @@ PyObject* Preprocessor_format_tokens(Preprocessor *self, PyObject *args)
     }
 }
 
+PyObject* Preprocessor_set_include_locator(Preprocessor *self, PyObject *args)
+{
+    PyObject *locator_;
+    if (!PyArg_ParseTuple(args, "O:set_include_locator", &locator_))
+        return NULL;
+
+    if (!PyCallable_Check(locator_))
+    {
+        PyErr_SetString(PyExc_TypeError, "Expected a callable");
+        return NULL;
+    }
+
+    try
+    {
+        boost::shared_ptr<cmonster::core::IncludeLocator> locator(
+            new cmonster::python::IncludeLocator(locator_));
+        self->preprocessor->set_include_locator(locator);
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    catch (std::exception const& e)
+    {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    catch (python_exception const& e)
+    {
+        return NULL;
+    }
+    catch (...)
+    {
+        PyErr_SetNone(PyExc_RuntimeError);
+        return NULL;
+    }
+}
+
 static PyMethodDef Preprocessor_methods[] =
 {
 //    {(char*)"add_include_path",
@@ -499,6 +536,8 @@ static PyMethodDef Preprocessor_methods[] =
      (PyCFunction)&Preprocessor_next, METH_VARARGS},
     {(char*)"format_tokens",
      (PyCFunction)&Preprocessor_format_tokens, METH_VARARGS},
+    {(char*)"set_include_locator",
+     (PyCFunction)&Preprocessor_set_include_locator, METH_VARARGS},
     {NULL}
 };
 

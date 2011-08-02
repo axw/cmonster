@@ -20,12 +20,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "token_predicate.hpp"
+#include "../token_iterator.hpp"
 
 namespace cmonster {
 namespace core {
 
-TokenPredicate::~TokenPredicate()
+TokenIterator::~TokenIterator()
 {
 }
 

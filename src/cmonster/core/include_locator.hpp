@@ -20,14 +20,37 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "token_iterator.hpp"
+#ifndef _CMONSTER_CORE_INCLUDE_LOCATOR_HPP
+#define _CMONSTER_CORE_INCLUDE_LOCATOR_HPP
+
+#include <string>
 
 namespace cmonster {
 namespace core {
 
-TokenIterator::~TokenIterator()
+/**
+ * Abstract base class for locating include files externally. The preprocessor
+ * will consult an implementation of IncludeLocator when its internal lookup
+ * fails.
+ */
+class IncludeLocator
 {
-}
+public:
+    virtual ~IncludeLocator() {}
+
+    /**
+     * Locate the absolute path of an #include filename, which is presented in
+     * either the angled or quoted form (i.e. <filename> or "filename").
+     *
+     * @param filename The filename, in angled or quoted form, to locate.
+     * @param absolute_path The resultant absolute path, if located.
+     * @return True if the include could be resolved, else false.
+     */
+    virtual bool locate(std::string const& filename,
+                        std::string &absolute_path) const = 0;
+};
 
 }}
+
+#endif
 
