@@ -60,8 +60,6 @@ public:
     void HandleDiagnostic(clang::Diagnostic::Level level,
                           const clang::DiagnosticInfo &info);
 
-    void complete();
-
 private:
     boost::shared_ptr<IncludeLocator>       m_locator;
     clang::Preprocessor                    &m_pp;

@@ -105,22 +105,6 @@ struct FileChangePPCallback : public clang::PPCallbacks
     clang::SourceLocation location;
 };
 
-struct IncludeLocatorCompletionPragmaHandler : public clang::PragmaHandler
-{
-    IncludeLocatorCompletionPragmaHandler(
-        cmonster::core::IncludeLocatorDiagnosticClient &client)
-      : clang::PragmaHandler(llvm::StringRef("cmonster_include", 16)),
-        m_client(client) {}
-    void HandlePragma(clang::Preprocessor &PP,
-                      clang::PragmaIntroducerKind Introducer,
-                      clang::Token &FirstToken)
-    {
-        m_client.complete();
-    }
-private:
-    cmonster::core::IncludeLocatorDiagnosticClient &m_client;
-};
-
 /**
  * A clang PragmaHandler implementation that stores the pragma arguments. These
  * will later be consumed by a DynamicPragmaHandler.
@@ -310,11 +294,6 @@ public:
             compiler.getPreprocessor(),
             compiler.getDiagnostics().takeClient());
         compiler.getDiagnostics().setClient(include_locator);
-
-        // Add an pragma handler for completing an include locator (i.e. to
-        // enter the source file.)
-        compiler.getPreprocessor().AddPragmaHandler(
-            new IncludeLocatorCompletionPragmaHandler(*include_locator));
     }
 
     /**

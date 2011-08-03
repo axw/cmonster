@@ -6,6 +6,18 @@
 
 #include <iostream>
 
+namespace {
+struct DiagnosticsResetter
+{
+    DiagnosticsResetter(clang::Preprocessor &pp, clang::Diagnostic &diag)
+      : m_pp(pp), m_diag(diag) {}
+    ~DiagnosticsResetter() {m_pp.setDiagnostics(m_diag);}
+private:
+    clang::Preprocessor &m_pp;
+    clang::Diagnostic &m_diag;
+};
+}
+
 namespace cmonster {
 namespace core {
 
@@ -68,35 +80,21 @@ IncludeLocatorDiagnosticClient::HandleDiagnostic(
                         file, loc, file_characteristic);
                     if (!fid.isInvalid())
                     {
-                        m_include_fid = fid;
-                        m_include_loc = loc;
-
-                        // TODO Have a canonical definition of the pragma name
-                        // somewhere (probably this class's header file). Maybe
-                        // the pragma handler class should also live in this
-                        // file.
-                        //
-                        // _Pragma("cmonster_include")
-                        clang::Token *tok = new clang::Token[4];
-                        tok[0].startToken();
-                        tok[0].setKind(clang::tok::identifier);
-                        m_pp.CreateString("_Pragma", 7, tok[0]);
-                        tok[0].setIdentifierInfo(m_pp.getIdentifierInfo(
-                            llvm::StringRef("_Pragma", 7)));
-                        tok[1].startToken();
-                        tok[1].setKind(clang::tok::l_paren);
-                        m_pp.CreateString("(", 1, tok[1]);
-                        tok[2].startToken();
-                        tok[2].setKind(clang::tok::string_literal);
-                        m_pp.CreateString("\"cmonster_include\"", 18, tok[2]);
-                        tok[3].startToken();
-                        tok[3].setKind(clang::tok::r_paren);
-                        m_pp.CreateString(")", 1, tok[3]);
-                        m_pp.EnterTokenStream(tok, 4, false, true);
+                        // We set a temporary diagnostics object on the
+                        // preprocessor in case the "EnterSourceFile" below
+                        // causes another error. Diagnostics barf when another
+                        // is reported while one is already "in flight".
+                        clang::Diagnostic &old_diag = m_pp.getDiagnostics();
+                        clang::Diagnostic temp_diag(
+                            m_pp.getDiagnostics().getDiagnosticIDs(),
+                            this, false);
+                        m_pp.setDiagnostics(temp_diag);
+                        DiagnosticsResetter resetter(m_pp, old_diag);
+                        m_pp.EnterSourceFile(fid, m_pp.GetCurDirLookup(), loc);
 
                         // Finally, we must mark the "last diagnostic" as
                         // ignored so preprocessing continues as usual.
-                        m_pp.getDiagnostics().setLastDiagnosticIgnored();
+                        old_diag.setLastDiagnosticIgnored();
                         return;
                     }
                 }
@@ -118,16 +116,6 @@ IncludeLocatorDiagnosticClient::HandleDiagnostic(
         m_delegate->HandleDiagnostic(level, info);
     else
         clang::DiagnosticClient::HandleDiagnostic(level, info);
-}
-
-void IncludeLocatorDiagnosticClient::complete()
-{
-    if (!m_include_fid.isInvalid())
-    {
-        clang::FileID fid = m_include_fid;
-        m_include_fid = clang::FileID();
-        m_pp.EnterSourceFile(fid, m_pp.GetCurDirLookup(), m_include_loc);
-    }
 }
 
 }}
