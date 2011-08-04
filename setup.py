@@ -1,6 +1,12 @@
 from distutils.core import setup
 from distutils.extension import Extension
 
+description = """
+CMonster is a Python wrapper around the Clang/LLVM preprocessor, adding support
+for inline Python macros, programmatic #include handling, and external
+preprocessor emulation.
+""".strip()
+
 # Remove the "-Wstrict-prototypes" compiler option, which isn't valid for C++.
 import distutils.sysconfig
 cfg_vars = distutils.sysconfig.get_config_vars()
@@ -78,9 +84,13 @@ setup(
     name="cmonster",
     version="0.1",
     classifiers=classifiers,
+    description=description,
     packages = ["cmonster", "cmonster.config"],
     package_dir = {"": "lib"},
     scripts = ["scripts/cmonster"],
-    ext_modules=[_preprocessor_extension]
+    ext_modules=[_preprocessor_extension],
+    author="Andrew Wilkins",
+    author_email="axwalk@gmail.com",
+    url="http://github.com/axw/cmonster"
 )
 
