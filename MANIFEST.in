@@ -1,0 +1,4 @@
+recursive-include src *.hpp *.cpp
+
+# No formal test suite yet, ignore for now.
+prune test

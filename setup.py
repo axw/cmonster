@@ -80,6 +80,7 @@ setup(
     classifiers=classifiers,
     packages = ["cmonster", "cmonster.config"],
     package_dir = {"": "lib"},
+    scripts = ["scripts/cmonster"],
     ext_modules=[_preprocessor_extension]
 )
 
