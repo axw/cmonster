@@ -85,5 +85,7 @@ class Preprocessor(_Preprocessor):
         locals_ = {}
         eval(code, globals(), locals_)
         fn = locals_[str(signature_tokens[0])]
+
+        # Define the macro.
         self.define(fn)
 

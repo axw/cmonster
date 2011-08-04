@@ -262,6 +262,11 @@ public:
                 clang::frontend::Angled, true, false, false);
         }
 
+        // Disable predefined macros. We'll get these from the target
+        // preprocessor.
+        // FIXME disabling this causes a segfault, will come back to it.
+        //compiler.getPreprocessorOpts().UsePredefines = false;
+
         // Create the rest.
         compiler.createFileManager();
         compiler.createSourceManager(compiler.getFileManager());

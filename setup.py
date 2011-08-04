@@ -40,7 +40,8 @@ _preprocessor_extension = Extension(
     ],
 
     # LLVM/Clang libraries.
-    library_dirs = ["/home/andrew/prog/llvm/build/Debug+Asserts/lib"],
+    #library_dirs = ["/home/andrew/prog/llvm/build/Debug+Asserts/lib"],
+    library_dirs = ["/home/andrew/prog/llvm/build/Release/lib"],
     libraries = [
         "clangFrontend",
         "clangDriver",

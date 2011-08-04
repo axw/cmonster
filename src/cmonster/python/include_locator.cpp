@@ -53,18 +53,10 @@ IncludeLocator::locate(std::string const& include, std::string &abs_path) const
     // FIXME The Python exceptions won't fly... probably should convert to C++
     // exceptions and discard them.
 
-    // Create the arguments tuple (the include string).
-    PyObject *include_pystr =
-        PyUnicode_FromStringAndSize(include.data(), include.size());
-    if (!include_pystr)
-        throw python_exception();
-    ScopedPyObject args_tuple = Py_BuildValue("(O)", include_pystr);
-    if (!args_tuple)
-        throw python_exception();
-
     // Call the function. Anything other than a string will be treated as the
     // function having failed to locate the include.
-    ScopedPyObject result = PyObject_Call(m_callable, args_tuple, NULL);
+    ScopedPyObject result = PyObject_CallFunction(
+        m_callable, (char*)"s#", include.data(), (int)include.size());
     if (!result)
         throw python_exception();
     if (PyUnicode_Check(result))
@@ -83,6 +75,7 @@ IncludeLocator::locate(std::string const& include, std::string &abs_path) const
             throw python_exception();
         }
     }
+    // TODO handle file-like object
     return false;
 }
 

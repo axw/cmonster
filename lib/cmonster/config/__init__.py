@@ -18,26 +18,3 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-def cli_main():
-    # First up, parse the command line arguments.
-    import argparse
-    description = "C Preprocessor with Python macros"
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument(
-        "file", type=argparse.FileType("r"), nargs=1,
-        help="the file to preprocess")
-    args = parser.parse_args()
-
-    # Create the preprocessor.
-    import sys
-    from . import Preprocessor
-
-    # TODO Support passing a file object to the init function.
-    pp = Preprocessor(args.file[0].name)
-
-    # TODO detect/allow configuration of target preprocessor/compiler.
-    from .config import gcc
-    gcc.configure(pp)
-
-    pp.preprocess()
-
