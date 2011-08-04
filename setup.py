@@ -2,7 +2,7 @@ from distutils.core import setup
 from distutils.extension import Extension
 
 description = """
-CMonster is a Python wrapper around the Clang/LLVM preprocessor, adding support
+cmonster is a Python wrapper around the Clang/LLVM preprocessor, adding support
 for inline Python macros, programmatic #include handling, and external
 preprocessor emulation.
 """.strip()
