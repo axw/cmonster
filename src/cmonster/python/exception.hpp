@@ -29,28 +29,31 @@ SOFTWARE.
 #include <Python.h>
 
 #include <cassert>
+#include <exception>
+#include <string>
+
+#include "scoped_pyobject.hpp"
+
+#include <boost/exception/all.hpp>
 
 namespace cmonster {
 namespace python {
 
 /**
  * An exception class that is thrown when a Python exception has occurred.
- *
- * This should not inherit from std::exception, as it should always be left to
- * percolate right up to the point where the extension meets Python.
  */
-struct python_exception
+struct python_exception : public std::exception
 {
     /**
      * Default constructor. This should be called when a Python exception has
      * occurred.
      */
-    python_exception() {assert(PyErr_Occurred());}
+    inline python_exception() {assert(PyErr_Occurred());}
 
     /**
      * This constructor may be called to set a Python exception.
      */
-    python_exception(PyObject *type, const char *message = NULL)
+    inline python_exception(PyObject *type, const char *message = NULL)
     {
         assert(!PyErr_Occurred());
         if (message)
@@ -58,7 +61,88 @@ struct python_exception
         else
             PyErr_SetNone(type);
     }
+
+    /**
+     * No-throw destructor.
+     */
+    inline ~python_exception() throw() {}
+
+    /**
+     * Convert the current Python exception to a string.
+     *
+     * XXX should this clear the current exception too?
+     */
+    inline const char *what() const throw()
+    {
+        if (m_what.empty() && PyErr_Occurred())
+        {
+            PyObject *exc, *val, *tb;
+            PyErr_Fetch(&exc, &val, &tb);
+            PyErr_NormalizeException(&exc, &val, &tb);
+            ScopedPyObject str(PyObject_Str(val));
+            if (str)
+            {
+                ScopedPyObject utf8_value(PyUnicode_AsUTF8String(str));
+                const char *value;
+                if (utf8_value && (value = PyBytes_AsString(utf8_value)))
+                    m_what = value;
+            }
+            PyErr_Restore(exc, val, tb);
+        }
+        return m_what.c_str();
+    }
+
+    static inline void boost_throw_exception()
+    {
+        assert(PyErr_Occurred());
+
+        PyObject *exc, *val, *tb;
+        PyErr_Fetch(&exc, &val, &tb);
+        assert(exc && val && tb);
+
+        // Get the line number from the traceback.
+        ScopedPyObject lineno(PyObject_GetAttrString(tb, "tb_lineno"));
+        assert(lineno);
+
+        // Get the frame from the traceback, and restore the exception.
+        ScopedPyObject frame(PyObject_GetAttrString(tb, "tb_frame"));
+        assert(frame.get());
+        PyErr_Restore(exc, val, tb);
+
+        // Get the code object from the traceback, so we can get the file and
+        // function names.
+        ScopedPyObject code(PyObject_GetAttrString(frame, "f_code"));
+        assert(code.get());
+        ScopedPyObject filename_(PyObject_GetAttrString(code, "co_filename"));
+        assert(filename_.get());
+        ScopedPyObject name_(PyObject_GetAttrString(code, "co_name"));
+        assert(name_.get());
+
+        // Get the file and function names.
+        ScopedPyObject utf8_filename(PyUnicode_AsUTF8String(filename_));
+        assert(utf8_filename.get());
+        const char *filename = PyBytes_AsString(utf8_filename);
+        assert(filename);
+        ScopedPyObject utf8_name(PyUnicode_AsUTF8String(name_));
+        assert(utf8_name.get());
+        const char *name = PyBytes_AsString(utf8_name);
+        assert(name);
+
+        boost::throw_exception(boost::enable_error_info(python_exception())
+            << boost::throw_function(name)
+            << boost::throw_file(filename)
+            << boost::throw_line(PyLong_AsLong(lineno)));
+    }
+
+private:
+    mutable std::string m_what;
 };
+
+/**
+ * This function will set a Python exception, using boost::current_exception if
+ * available. If a Python exception is already set, then nothing is done.
+ */
+void set_python_exception();
 
 }}
 

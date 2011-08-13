@@ -78,18 +78,9 @@ static PyObject* TokenIterator_iternext(TokenIterator *self)
                 self->iterator = NULL;
             }
         }
-        catch (std::exception const& e)
-        {
-            PyErr_SetString(PyExc_RuntimeError, e.what());
-            return NULL;
-        }
-        catch (python_exception const& e)
-        {
-            return NULL;
-        }
         catch (...)
         {
-            PyErr_SetNone(PyExc_RuntimeError);
+            set_python_exception();
             return NULL;
         }
     }
@@ -130,21 +121,10 @@ TokenIterator* create_iterator(Preprocessor *preprocessor)
         {
             iter->iterator = get_preprocessor(preprocessor).create_iterator();
         }
-        catch (std::exception const& e)
-        {
-            PyErr_SetString(PyExc_RuntimeError, e.what());
-            PyObject_Del(iter);
-            return NULL;
-        }
-        catch (python_exception const& e)
-        {
-            PyObject_Del(iter);
-            return NULL;
-        }
         catch (...)
         {
-            PyErr_SetNone(PyExc_RuntimeError);
             PyObject_Del(iter);
+            set_python_exception();
             return NULL;
         }
     }

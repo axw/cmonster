@@ -27,6 +27,10 @@ SOFTWARE.
 #include <clang/Lex/LexDiagnostic.h>
 
 #include <iostream>
+#include <stdexcept>
+
+#include <boost/exception_ptr.hpp>
+#include <boost/exception/to_string.hpp>
 
 namespace {
 struct DiagnosticsResetter
@@ -110,6 +114,8 @@ IncludeLocatorDiagnosticClient::HandleDiagnostic(
                         clang::Diagnostic temp_diag(
                             m_pp.getDiagnostics().getDiagnosticIDs(),
                             this, false);
+                        temp_diag.setSourceManager(
+                            &old_diag.getSourceManager());
                         m_pp.setDiagnostics(temp_diag);
                         DiagnosticsResetter resetter(m_pp, old_diag);
                         m_pp.EnterSourceFile(fid, m_pp.GetCurDirLookup(), loc);
@@ -120,15 +126,43 @@ IncludeLocatorDiagnosticClient::HandleDiagnostic(
                         return;
                     }
                 }
-                // XXX Else... what? Maybe insert a comment back into
-                // the preprocessor for problem determination?
+
+                // Returned file does not exist. Raise a new diagnostic with
+                // the new filename.
+                clang::Diagnostic &old_diag = m_pp.getDiagnostics();
+                old_diag.setLastDiagnosticIgnored();
+                clang::Diagnostic temp_diag(
+                    m_pp.getDiagnostics().getDiagnosticIDs(), this, false);
+                temp_diag.setSourceManager(&old_diag.getSourceManager());
+                temp_diag.Report(info.getLocation(), info.getID()) << path;
+                return;
             }
         }
         catch (...)
         {
-            // Don't let exceptions escape to Clang.
-            // TODO Push an error comment back into the preprocessor? Can't
-            // raise a diagnostic from a diagnostic (Clang will barf).
+            // Don't let exceptions escape to Clang. Raise a new diagnostic.
+            clang::Diagnostic &old_diag = m_pp.getDiagnostics();
+            old_diag.setLastDiagnosticIgnored();
+            clang::Diagnostic temp_diag(
+                m_pp.getDiagnostics().getDiagnosticIDs(), this, false);
+            temp_diag.setSourceManager(&old_diag.getSourceManager());
+
+            // Report the diagnostic.
+            unsigned diagId = temp_diag.getCustomDiagID(
+                clang::Diagnostic::Error,
+                llvm::StringRef("Exception thrown in include locator: %0"));
+            boost::exception_ptr const& e = boost::current_exception();
+            if (e)
+            {
+                std::string const& what = boost::to_string(e);
+                temp_diag.Report(info.getLocation(), diagId) << what;
+            }
+            else
+            {
+                temp_diag.Report(info.getLocation(), diagId)
+                    << "unknown exception occurred";
+            }
+            return;
         }
     }
 
@@ -138,6 +172,17 @@ IncludeLocatorDiagnosticClient::HandleDiagnostic(
         m_delegate->HandleDiagnostic(level, info);
     else
         clang::DiagnosticClient::HandleDiagnostic(level, info);
+}
+
+clang::DiagnosticClient* IncludeLocatorDiagnosticClient::takeDelegate()
+{
+    return m_delegate.release();
+}
+
+void
+IncludeLocatorDiagnosticClient::setDelegate(clang::DiagnosticClient *delegate)
+{
+    m_delegate.reset(delegate);
 }
 
 }}

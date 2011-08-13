@@ -39,8 +39,13 @@ class Preprocessor(_Preprocessor):
     Main C Preprocessor class.
     """
 
-    def __init__(self, filename, include_paths=()):
-        _Preprocessor.__init__(self, filename, include_paths)
+    def __init__(self, filename, data=None):
+        if data is None:
+            data = open(filename).read()
+        _Preprocessor.__init__(self, data, filename)
+
+        # XXX Should this be configurable?
+        self.add_include_dir(".", False)
 
         # Predefined macros.
         #

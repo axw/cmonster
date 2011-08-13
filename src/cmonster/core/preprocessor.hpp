@@ -46,8 +46,8 @@ class Token;
 class Preprocessor
 {
 public:
-    Preprocessor(const char *filename,
-                 std::vector<std::string> const& include_paths);
+    Preprocessor(const char *buffer,size_t buflen,
+                 const char *filename = "");
 
     // void set_language(...)
 

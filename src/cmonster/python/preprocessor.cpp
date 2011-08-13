@@ -57,18 +57,9 @@ static PyObject* Preprocessor_iter(Preprocessor *pp)
     {
         return (PyObject*)create_iterator(pp);
     }
-    catch (std::exception const& e)
-    {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-    catch (python_exception const& e)
-    {
-        return NULL;
-    }
     catch (...)
     {
-        PyErr_SetNone(PyExc_RuntimeError);
+        set_python_exception();
         return NULL;
     }
 }
@@ -84,75 +75,22 @@ static void Preprocessor_dealloc(Preprocessor* self)
 static int
 Preprocessor_init(Preprocessor *self, PyObject *args, PyObject *kwds)
 {
+    char *buffer;
+    int buflen;
     char *filename;
-    PyObject *include_paths_ = NULL;
-    if (!PyArg_ParseTuple(args, "sO", &filename, &include_paths_))
+    if (!PyArg_ParseTuple(args, "s#|s", &buffer, &buflen, &filename))
         return -1;
 
     try
     {
-        // Get the include paths.
-        std::vector<std::string> include_paths;
-        if (!PySequence_Check(include_paths_))
-        {
-            PyErr_SetString(PyExc_TypeError,
-                "expected sequence of string for second argument");
-        }
-
-        const Py_ssize_t seqlen = PySequence_Size(include_paths_);
-        if (seqlen == -1)
-            return -1;
-        for (Py_ssize_t i = 0; i < seqlen; ++i)
-        {
-            ScopedPyObject path_ = PySequence_GetItem(include_paths_, i);
-            if (PyUnicode_Check(path_))
-            {
-                PyObject *u8 = PyUnicode_AsUTF8String(path_);
-                if (u8)
-                {
-                    char *u8_chars;
-                    Py_ssize_t u8_size;
-                    if (PyBytes_AsStringAndSize(u8, &u8_chars, &u8_size) == -1)
-                    {
-                        Py_DECREF(u8);
-                        return -1;
-                    }
-                    else
-                    {
-                        include_paths.push_back(
-                            std::string(u8_chars, u8_size));
-                        Py_DECREF(u8);
-                    }
-                }
-                else
-                {
-                    return -1;
-                }
-            }
-            else
-            {
-                PyErr_SetString(PyExc_TypeError,
-                    "expected sequence of string for second argument");
-                return -1;
-            }
-        }
-
         // Create a core preprocessor object.
-        self->preprocessor =
-            new cmonster::core::Preprocessor(filename, include_paths);
-
+        self->preprocessor = new cmonster::core::Preprocessor(
+            buffer, buflen, filename ? filename : "");
         return 0;
-    }
-    catch (std::exception const& e)
-    {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-    }
-    catch (python_exception const& e)
-    {
     }
     catch (...)
     {
-        PyErr_SetNone(PyExc_RuntimeError);
+        set_python_exception();
     }
     return -1;
 }
@@ -172,16 +110,9 @@ Preprocessor_add_include_dir(Preprocessor* self, PyObject *args)
         Py_INCREF(Py_None);
         return Py_None;
     }
-    catch (std::exception const& e)
-    {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-    }
-    catch (python_exception const& e)
-    {
-    }
     catch (...)
     {
-        PyErr_SetNone(PyExc_RuntimeError);
+        set_python_exception();
     }
     return NULL;
 }
@@ -262,18 +193,9 @@ static PyObject* Preprocessor_define(Preprocessor* self, PyObject *args)
             return NULL;
         }
     }
-    catch (std::exception const& e)
-    {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-    catch (python_exception const& e)
-    {
-        return NULL;
-    }
     catch (...)
     {
-        PyErr_SetNone(PyExc_RuntimeError);
+        set_python_exception();
         return NULL;
     }
 
@@ -302,18 +224,9 @@ static PyObject* Preprocessor_add_pragma(Preprocessor* self, PyObject *args)
             return NULL;
         }
     }
-    catch (std::exception const& e)
-    {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-    catch (python_exception const& e)
-    {
-        return NULL;
-    }
     catch (...)
     {
-        PyErr_SetNone(PyExc_RuntimeError);
+        set_python_exception();
         return NULL;
     }
     Py_INCREF(Py_None);
@@ -345,18 +258,9 @@ static PyObject* Preprocessor_tokenize(Preprocessor* self, PyObject *args)
         }
         return tuple.release();
     }
-    catch (std::exception const& e)
-    {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-    catch (python_exception const& e)
-    {
-        return NULL;
-    }
     catch (...)
     {
-        PyErr_SetNone(PyExc_RuntimeError);
+        set_python_exception();
         return NULL;
     }
     Py_INCREF(Py_None);
@@ -372,20 +276,9 @@ static PyObject* Preprocessor_preprocess(Preprocessor* self, PyObject *args)
     {
         self->preprocessor->preprocess(fd);
     }
-    catch (std::exception const& e)
-    {
-        if (!PyErr_Occurred())
-            PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-    catch (python_exception const& e)
-    {
-        return NULL;
-    }
     catch (...)
     {
-        if (!PyErr_Occurred())
-            PyErr_SetNone(PyExc_RuntimeError);
+        set_python_exception();
         return NULL;
     }
     Py_INCREF(Py_None);
@@ -412,18 +305,9 @@ static PyObject* Preprocessor_next(Preprocessor* self, PyObject *args)
             return NULL;
         }
     }
-    catch (std::exception const& e)
-    {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-    catch (python_exception const& e)
-    {
-        return NULL;
-    }
     catch (...)
     {
-        PyErr_SetNone(PyExc_RuntimeError);
+        set_python_exception();
         return NULL;
     }
 }
@@ -467,18 +351,9 @@ PyObject* Preprocessor_format_tokens(Preprocessor *self, PyObject *args)
         std::string formatted = ss.str();
         return PyUnicode_FromStringAndSize(formatted.data(), formatted.size());
     }
-    catch (std::exception const& e)
-    {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-    catch (python_exception const& e)
-    {
-        return NULL;
-    }
     catch (...)
     {
-        PyErr_SetNone(PyExc_RuntimeError);
+        set_python_exception();
         return NULL;
     }
 }
@@ -503,18 +378,9 @@ PyObject* Preprocessor_set_include_locator(Preprocessor *self, PyObject *args)
         Py_INCREF(Py_None);
         return Py_None;
     }
-    catch (std::exception const& e)
-    {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-    catch (python_exception const& e)
-    {
-        return NULL;
-    }
     catch (...)
     {
-        PyErr_SetNone(PyExc_RuntimeError);
+        set_python_exception();
         return NULL;
     }
 }

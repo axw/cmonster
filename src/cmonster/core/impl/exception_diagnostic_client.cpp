@@ -20,41 +20,24 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
-#define _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
+#include "exception_diagnostic_client.hpp"
 
-/* Define this to ensure only the limited API is used, so we can ensure forward
- * binary compatibility. */
-#define Py_LIMITED_API
-#include <Python.h>
+#include <llvm/ADT/SmallString.h>
 
 namespace cmonster {
-namespace python {
+namespace core {
 
-struct ScopedPyObject
+ExceptionDiagnosticClient::ExceptionDiagnosticClient(
+    boost::exception_ptr &exception) : m_exception(exception) {}
+
+void
+ExceptionDiagnosticClient::HandleDiagnostic(
+    clang::Diagnostic::Level level, const clang::DiagnosticInfo &info)
 {
-    ScopedPyObject(PyObject *ref) throw() : m_ref(ref) {}
-    ~ScopedPyObject() throw() {Py_XDECREF(m_ref);}
-    operator PyObject* () throw() {return m_ref;}
-
-    PyObject* get() throw()
-    {
-        return m_ref;
-    }
-
-    // Release the return object.
-    PyObject* release() throw()
-    {
-        PyObject *ref = m_ref;
-        m_ref = NULL;
-        return ref;
-    }
-
-private:
-    PyObject *m_ref;
-};
+    llvm::SmallString<64> formatted;
+    info.FormatDiagnostic(formatted);
+    m_exception = boost::copy_exception(std::runtime_error(formatted.c_str()));
+}
 
 }}
-
-#endif
 

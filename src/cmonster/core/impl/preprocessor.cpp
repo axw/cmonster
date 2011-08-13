@@ -28,9 +28,9 @@ SOFTWARE.
 #include "../token_iterator.hpp"
 #include "../token_predicate.hpp"
 #include "../token.hpp"
+#include "exception_diagnostic_client.hpp"
 #include "include_locator_impl.hpp"
 
-//#include <boost/unordered/unordered_map.hpp>
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/Utils.h>
 #include <clang/Basic/FileManager.h>
@@ -41,6 +41,8 @@ SOFTWARE.
 #include <clang/Lex/ScratchBuffer.h>
 #include <llvm/Support/Host.h>
 
+#include <boost/exception_ptr.hpp>
+
 #include <algorithm>
 #include <cassert>
 #include <functional>
@@ -49,27 +51,11 @@ SOFTWARE.
 #include <list>
 #include <memory>
 #include <sstream>
-#include <setjmp.h>
 #include <stdexcept>
 
 ///////////////////////////////////////////////////////////////////////////////
 
 namespace {
-
-struct ExceptionInfo
-{
-    ExceptionInfo() : thrown(false), message() {}
-    void check()
-    {
-        if (thrown)
-        {
-            thrown = false;
-            throw std::runtime_error(message);
-        }
-    }
-    bool thrown;
-    std::string message;
-};
 
 struct null_deleter {
     void operator()(const void *) {}
@@ -142,10 +128,10 @@ struct DynamicPragmaHandler : public clang::PragmaHandler
         TokenSaverPragmaHandler &token_saver,
         std::string const& name,
         boost::shared_ptr<cmonster::core::FunctionMacro> const& function,
-        ExceptionInfo &einfo)
+        boost::exception_ptr &exception)
       : clang::PragmaHandler(llvm::StringRef(name.c_str(), name.size())),
         m_token_saver(token_saver), m_function(function),
-        m_exception_info(einfo) {}
+        m_exception(exception) {}
 
     void HandlePragma(clang::Preprocessor &PP,
                       clang::PragmaIntroducerKind Introducer,
@@ -184,21 +170,13 @@ struct DynamicPragmaHandler : public clang::PragmaHandler
             }
             return;
         }
-        catch (std::exception const& e)
+        catch (...)
         {
             // Clang is compiled without exception support, so we have to
             // resort to some nastiness here. Basically we need to insert an
             // eof token to force the preprocessor to exit. We'll also store
             // the error message so we can recover it later.
-            m_exception_info.message = "Exception thrown in pragma handler (";
-            m_exception_info.message.append(
-                std::string(getName().data(), getName().size()));
-            m_exception_info.message.append("): ");
-            m_exception_info.message.append(e.what());
-        }
-        catch (...)
-        {
-            m_exception_info.message = "";
+            m_exception = boost::current_exception();
         }
 
         // XXX should this be configurable? Allow user to just emit a
@@ -210,13 +188,12 @@ struct DynamicPragmaHandler : public clang::PragmaHandler
         tok.startToken();
         tok.setKind(clang::tok::eof);
         PP.EnterTokenStream(&tok, 1, false, true);
-        m_exception_info.thrown = true;
     }
 
 private:
     TokenSaverPragmaHandler                          &m_token_saver;
     boost::shared_ptr<cmonster::core::FunctionMacro>  m_function;
-    ExceptionInfo                                    &m_exception_info;
+    boost::exception_ptr                             &m_exception;
 };
 
 } // anonymous namespace
@@ -229,9 +206,8 @@ namespace core {
 class PreprocessorImpl
 {
 public:
-    PreprocessorImpl(const char *filename,
-                     std::vector<std::string> const& includes)
-      : compiler(), token_saver(), exception_info(), include_locator()
+    PreprocessorImpl(const char *buffer, size_t buflen, const char *filename)
+      : compiler(), token_saver(), exception(), include_locator()
     {
         // Create diagnostics.
         compiler.createDiagnostics(0, NULL);
@@ -252,15 +228,6 @@ public:
         hsopts.UseBuiltinIncludes = false;
         hsopts.UseStandardIncludes = false;
         hsopts.UseStandardCXXIncludes = false;
-        for (std::vector<std::string>::const_iterator iter = includes.begin();
-             iter != includes.end(); ++iter)
-        {
-            // XXX need to find out the effect of each of the different groups.
-            // e.g. what's the effect of not specifying the "System" group for
-            // system header paths.
-            hsopts.AddPath(llvm::StringRef(iter->c_str(), iter->size()),
-                clang::frontend::Angled, true, false, false);
-        }
 
         // Disable predefined macros. We'll get these from the target
         // preprocessor.
@@ -272,9 +239,9 @@ public:
         compiler.createSourceManager(compiler.getFileManager());
 
         // Set the main file.
-        // XXX Can we use a stream?
-        compiler.getSourceManager().createMainFileID(
-            compiler.getFileManager().getFile(filename));
+        compiler.getSourceManager().createMainFileIDForMemBuffer(
+            llvm::MemoryBuffer::getMemBufferCopy(
+                llvm::StringRef(buffer, buflen), filename));
         compiler.createPreprocessor();
 
         // Set the predefines on the preprocessor.
@@ -295,10 +262,17 @@ public:
         compiler.getPreprocessor().addPPCallbacks(file_change_callback);
 
         // Set the include locator diagnostic client.
+        clang::DiagnosticClient *orig_client =
+            compiler.getDiagnostics().takeClient();
         include_locator = new IncludeLocatorDiagnosticClient(
-            compiler.getPreprocessor(),
-            compiler.getDiagnostics().takeClient());
+            compiler.getPreprocessor(), orig_client);
         compiler.getDiagnostics().setClient(include_locator);
+
+        // Tell the diagnostic client that we've entered a source file, or bad
+        // things happen when diagnostics are reported.
+        // XXX Is it important to call EndSourceFile? Will anything leak?
+        orig_client->BeginSourceFile(
+            compiler.getLangOpts(), &compiler.getPreprocessor());
     }
 
     /**
@@ -312,7 +286,8 @@ public:
     {
         clang::Preprocessor &pp = compiler.getPreprocessor();
         clang::IdentifierInfo *macro_identifier = pp.getIdentifierInfo(name);
-        clang::MacroInfo *macro = pp.AllocateMacroInfo(clang::SourceLocation());
+        clang::MacroInfo *macro =
+            pp.AllocateMacroInfo(clang::SourceLocation());
 
         // Set the function arguments.
         if (is_function)
@@ -382,7 +357,10 @@ public:
             // Make sure the macro isn't already defined?
             clang::MacroInfo *macro = pp.getMacroInfo(macro_identifier);
             if (macro)
-                throw std::runtime_error("Macro already defined");
+            {
+                boost::throw_exception(
+                    std::runtime_error("Macro already defined"));
+            }
 
             // _CMONSTER_PRAGMA(cmonster_pragma __VA_ARGS__)
             clang::Token t;
@@ -482,13 +460,13 @@ public:
             {
                 compiler.getPreprocessor().AddPragmaHandler(
                     "cmonster", new DynamicPragmaHandler(
-                        *token_saver, name, function, exception_info));
+                        *token_saver, name, function, exception));
             }
             else
             {
                 compiler.getPreprocessor().AddPragmaHandler(
                     new DynamicPragmaHandler(
-                        *token_saver, name, function, exception_info));
+                        *token_saver, name, function, exception));
             }
             return true;
         }
@@ -526,25 +504,41 @@ public:
                 entry, clang::SrcMgr::C_User, true, false);
             search_paths.push_back(lookup);
         }
-        headers.SetSearchPaths(search_paths, n_quoted, n_quoted+n_angled, false);
+        headers.SetSearchPaths(
+            search_paths, n_quoted, n_quoted+n_angled, false);
         return true;
     }
 
     clang::CompilerInstance         compiler;
     TokenSaverPragmaHandler        *token_saver;          // owned by pp
     FileChangePPCallback           *file_change_callback; // owned by pp
-    ExceptionInfo                   exception_info;
+    boost::exception_ptr            exception;
     IncludeLocatorDiagnosticClient *include_locator;      // owned by pp
 };
 
 class TokenIteratorImpl : public TokenIterator
 {
 public:
-    TokenIteratorImpl(clang::Preprocessor &pp)
-      : m_pp(pp), m_current(pp), m_next()
+    TokenIteratorImpl(PreprocessorImpl &impl)
+      : m_impl(impl), m_pp(impl.compiler.getPreprocessor()),
+        m_current(m_pp), m_next()
     {
-        m_pp.Lex(m_next);
-        // m_impl->exception_info.check(); // TODO
+        // Pinched from "clang/lib/Frontend/PrintPreprocessedOutput.cpp". Skip
+        // tokens from the predefines buffer.
+        const clang::SourceManager &sm = m_pp.getSourceManager();
+        do
+        {
+            m_pp.Lex(m_next);
+            if (m_next.is(clang::tok::eof) || !m_next.getLocation().isFileID())
+                break;
+            clang::PresumedLoc PLoc = sm.getPresumedLoc(m_next.getLocation());
+            if (PLoc.isInvalid())
+                break;
+            if (strcmp(PLoc.getFilename(), "<built-in>") != 0)
+                break;
+        } while (true);
+        if (m_impl.exception)
+            boost::rethrow_exception(m_impl.exception);
     }
 
     bool has_next() const throw()
@@ -556,11 +550,13 @@ public:
     {
         m_current.setToken(m_next);
         m_pp.Lex(m_next);
-        // m_impl->exception_info.check(); // TODO
+        if (m_impl.exception)
+            boost::rethrow_exception(m_impl.exception);
         return m_current;
     }
 
 private:
+    PreprocessorImpl    &m_impl;
     clang::Preprocessor &m_pp;
     Token                m_current;
     clang::Token         m_next;
@@ -569,9 +565,9 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-Preprocessor::Preprocessor(const char *filename,
-                           std::vector<std::string> const& include_paths)
-  : m_impl(new PreprocessorImpl(filename, include_paths)) {}
+Preprocessor::Preprocessor(
+    const char *buffer, size_t buflen, const char *filename)
+  : m_impl(new PreprocessorImpl(buffer, buflen, filename)) {}
 
 bool Preprocessor::add_include_dir(std::string const& path, bool sysinclude)
 {
@@ -592,8 +588,11 @@ bool Preprocessor::define(std::string const& name, std::string const& value)
     {
         size_t lparen = name.find('(');
         if (lparen == std::string::npos)
-            throw std::invalid_argument(
-                "Name ends with ')', but has no matching '('");
+        {
+            boost::throw_exception(std::invalid_argument(
+                "Name ends with ')', but has no matching '('"));
+        }
+
         // Split the args by commas, stripping whiespace.
         size_t start = lparen + 1;
         const size_t rparen = name.size() - 1;
@@ -605,9 +604,9 @@ bool Preprocessor::define(std::string const& name, std::string const& value)
             {
                 std::stringstream ss;
                 ss << start;
-                throw std::invalid_argument(
+                boost::throw_exception(std::invalid_argument(
                     "Expected character other than ',' in string '" + name +
-                    "', column: " + ss.str());
+                    "', column: " + ss.str()));
             }
 
             size_t comma = name.find(',', start+1);
@@ -661,14 +660,21 @@ void Preprocessor::preprocess(long fd)
 
     clang::DoPrintPreprocessedInput(
         m_impl->compiler.getPreprocessor(), &out, opts);
-    m_impl->exception_info.check();
+    if (m_impl->exception)
+        boost::rethrow_exception(m_impl->exception);
 }
 
 TokenIterator* Preprocessor::create_iterator()
 {
     // Start preprocessing.
     m_impl->compiler.getPreprocessor().EnterMainSourceFile();
-    return new TokenIteratorImpl(m_impl->compiler.getPreprocessor());
+
+    // Set a new DiagnosticClient that stores exceptions.
+    m_impl->include_locator->setDelegate(
+        new ExceptionDiagnosticClient(m_impl->exception));
+
+    // Return a TokenIterator.
+    return new TokenIteratorImpl(*m_impl);
 }
 
 // XXX should we just be creating a new Lexer?
@@ -755,7 +761,8 @@ Token* Preprocessor::next(bool expand)
         pp.Lex(tok);
     else
         pp.LexUnexpandedToken(tok);
-    // m_impl->exception_info.check(); // TODO
+    if (m_impl->exception)
+        boost::rethrow_exception(m_impl->exception);
     return new Token(m_impl->compiler.getPreprocessor(), tok);
 }
 

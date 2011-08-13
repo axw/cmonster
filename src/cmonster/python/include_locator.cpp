@@ -30,6 +30,7 @@ SOFTWARE.
 #include "scoped_pyobject.hpp"
 #include "include_locator.hpp"
 
+#include <boost/exception/all.hpp>
 #include <stdexcept>
 
 namespace cmonster {
@@ -38,7 +39,7 @@ namespace python {
 IncludeLocator::IncludeLocator(PyObject *callable) : m_callable(callable)
 {
     if (!callable)
-        throw std::invalid_argument("callable == NULL");
+        BOOST_THROW_EXCEPTION(std::invalid_argument("callable == NULL"));
     Py_INCREF(m_callable);
 }
 
@@ -58,7 +59,7 @@ IncludeLocator::locate(std::string const& include, std::string &abs_path) const
     ScopedPyObject result = PyObject_CallFunction(
         m_callable, (char*)"s#", include.data(), (int)include.size());
     if (!result)
-        throw python_exception();
+        python_exception::boost_throw_exception();
     if (PyUnicode_Check(result))
     {
         ScopedPyObject utf8_path(PyUnicode_AsUTF8String(result));
@@ -72,7 +73,7 @@ IncludeLocator::locate(std::string const& include, std::string &abs_path) const
         }
         else
         {
-            throw python_exception();
+            python_exception::boost_throw_exception();
         }
     }
     // TODO handle file-like object

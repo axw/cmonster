@@ -1,6 +1,8 @@
+from distribute_setup import use_setuptools
+use_setuptools()
+
 from setuptools import setup
-#from distutils.core import setup
-from distutils.extension import Extension
+from setuptools.extension import Extension
 
 description = """
 cmonster is a Python wrapper around the Clang/LLVM preprocessor, adding support
@@ -18,12 +20,14 @@ if "CFLAGS" in cfg_vars:
 _preprocessor_extension = Extension(
     "cmonster._preprocessor",
     [
+        "src/cmonster/core/impl/exception_diagnostic_client.cpp",
         "src/cmonster/core/impl/include_locator_impl.cpp",
         "src/cmonster/core/impl/function_macro.cpp",
         "src/cmonster/core/impl/preprocessor.cpp",
         "src/cmonster/core/impl/token_iterator.cpp",
         "src/cmonster/core/impl/token_predicate.cpp",
         "src/cmonster/core/impl/token.cpp",
+        "src/cmonster/python/exception.cpp",
         "src/cmonster/python/include_locator.cpp",
         "src/cmonster/python/function_macro.cpp",
         "src/cmonster/python/module.cpp",
@@ -92,6 +96,7 @@ setup(
     ext_modules=[_preprocessor_extension],
     author="Andrew Wilkins",
     author_email="axwalk@gmail.com",
-    url="http://github.com/axw/cmonster"
+    url="http://github.com/axw/cmonster",
+    test_suite="test"
 )
 

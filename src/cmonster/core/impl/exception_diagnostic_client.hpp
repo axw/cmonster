@@ -20,38 +20,30 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
-#define _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
+#ifndef _CMONSTER_CORE_IMPL_EXCEPTIONDIAGNOSTICCLIENT_HPP
+#define _CMONSTER_CORE_IMPL_EXCEPTIONDIAGNOSTICCLIENT_HPP
 
-/* Define this to ensure only the limited API is used, so we can ensure forward
- * binary compatibility. */
-#define Py_LIMITED_API
-#include <Python.h>
+#include <boost/exception_ptr.hpp>
+
+#include <clang/Basic/Diagnostic.h>
 
 namespace cmonster {
-namespace python {
+namespace core {
 
-struct ScopedPyObject
+/**
+ * Clang is compiled without exception support, so we have to make sure that
+ * the exceptions thrown by cmonster 
+ */
+class ExceptionDiagnosticClient : public clang::DiagnosticClient
 {
-    ScopedPyObject(PyObject *ref) throw() : m_ref(ref) {}
-    ~ScopedPyObject() throw() {Py_XDECREF(m_ref);}
-    operator PyObject* () throw() {return m_ref;}
+public:
+    ExceptionDiagnosticClient(boost::exception_ptr &exception);
 
-    PyObject* get() throw()
-    {
-        return m_ref;
-    }
-
-    // Release the return object.
-    PyObject* release() throw()
-    {
-        PyObject *ref = m_ref;
-        m_ref = NULL;
-        return ref;
-    }
-
+    void HandleDiagnostic(clang::Diagnostic::Level level,
+                          const clang::DiagnosticInfo &info);
+    
 private:
-    PyObject *m_ref;
+    boost::exception_ptr &m_exception;
 };
 
 }}

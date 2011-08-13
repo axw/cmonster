@@ -19,42 +19,30 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+#include "exception.hpp"
 
-#ifndef _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
-#define _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
-
-/* Define this to ensure only the limited API is used, so we can ensure forward
- * binary compatibility. */
-#define Py_LIMITED_API
-#include <Python.h>
+#include <boost/exception_ptr.hpp>
+#include <boost/exception/to_string.hpp>
 
 namespace cmonster {
 namespace python {
 
-struct ScopedPyObject
+void set_python_exception()
 {
-    ScopedPyObject(PyObject *ref) throw() : m_ref(ref) {}
-    ~ScopedPyObject() throw() {Py_XDECREF(m_ref);}
-    operator PyObject* () throw() {return m_ref;}
-
-    PyObject* get() throw()
+    if (!PyErr_Occurred())
     {
-        return m_ref;
+        boost::exception_ptr const& e = boost::current_exception();
+        if (e)
+        {
+            std::string what = boost::to_string(e);
+            PyErr_SetString(PyExc_RuntimeError, what.c_str());
+        }
+        else
+        {
+            PyErr_SetNone(PyExc_RuntimeError);
+        }
     }
-
-    // Release the return object.
-    PyObject* release() throw()
-    {
-        PyObject *ref = m_ref;
-        m_ref = NULL;
-        return ref;
-    }
-
-private:
-    PyObject *m_ref;
-};
+}
 
 }}
-
-#endif
 

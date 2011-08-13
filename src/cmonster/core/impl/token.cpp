@@ -21,6 +21,8 @@ SOFTWARE.
 */
 
 #include "../token.hpp"
+
+#include <boost/exception/exception.hpp>
 #include <stdexcept>
 
 namespace cmonster {
@@ -56,8 +58,8 @@ Token::Token(clang::Preprocessor &pp, clang::tok::TokenKind kind,
     {
         if (!value || !value_len)
         {
-            throw std::invalid_argument(
-                "Expected a non-empty value for identifier");
+            boost::throw_exception(std::invalid_argument(
+                "Expected a non-empty value for identifier"));
         }
         llvm::StringRef s(value, value_len);
         token.setIdentifierInfo(
@@ -70,8 +72,8 @@ Token::Token(clang::Preprocessor &pp, clang::tok::TokenKind kind,
         {
             if (token.isLiteral())
             {
-                throw std::invalid_argument(
-                    "Expected a non-empty value for literal");
+                boost::throw_exception(std::invalid_argument(
+                    "Expected a non-empty value for literal"));
             }
             else
             {
@@ -102,22 +104,16 @@ Token& Token::operator=(Token const& rhs)
 
 void Token::setToken(clang::Token const& token)
 {
-    if (!m_impl) // XXX make "undefined behaviour"?
-        throw std::runtime_error("Invalid use of Token");
     m_impl->token = token;
 }
 
 clang::Token& Token::getToken()
 {
-    if (!m_impl) // XXX make "undefined behaviour"?
-        throw std::runtime_error("Invalid use of Token");
     return m_impl->token;
 }
 
 const clang::Token& Token::getToken() const
 {
-    if (!m_impl) // XXX make "undefined behaviour"?
-        throw std::runtime_error("Invalid use of Token");
     return m_impl->token;
 }
 
