@@ -102,17 +102,17 @@ Token& Token::operator=(Token const& rhs)
     return *this;
 }
 
-void Token::setToken(clang::Token const& token)
+void Token::setClangToken(clang::Token const& token)
 {
     m_impl->token = token;
 }
 
-clang::Token& Token::getToken()
+clang::Token& Token::getClangToken()
 {
     return m_impl->token;
 }
 
-const clang::Token& Token::getToken() const
+const clang::Token& Token::getClangToken() const
 {
     return m_impl->token;
 }

@@ -49,8 +49,6 @@ public:
     Preprocessor(const char *buffer,size_t buflen,
                  const char *filename = "");
 
-    // void set_language(...)
-
     /**
      * Add an include directory.
      *

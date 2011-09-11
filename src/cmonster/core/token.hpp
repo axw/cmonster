@@ -50,17 +50,17 @@ public:
     /**
      * Get the underlying Clang token.
      */
-    clang::Token& getToken();
+    clang::Token& getClangToken();
 
     /**
      * Get the underlying Clang token.
      */
-    const clang::Token& getToken() const;
+    const clang::Token& getClangToken() const;
 
     /**
      * Set the underlying Clang token.
      */
-    void setToken(clang::Token const&);
+    void setClangToken(clang::Token const&);
 
     /**
      * Get the token name (stringified "kind").

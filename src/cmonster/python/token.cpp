@@ -164,7 +164,7 @@ static PyObject* Token_repr(Token *self)
 
 static PyObject* Token_get_token_id(Token *self, void *closure)
 {
-    clang::tok::TokenKind kind = self->token->getToken().getKind();
+    clang::tok::TokenKind kind = self->token->getClangToken().getKind();
     return PyLong_FromLong(static_cast<long>(kind));
 }
 
@@ -179,7 +179,8 @@ Token_set_token_id(Token *self, PyObject *value, void *closure)
         PyErr_SetString(PyExc_ValueError, "token kind is out of range");
         return NULL;
     }
-    self->token->getToken().setKind(static_cast<clang::tok::TokenKind>(id));
+    self->token->getClangToken().setKind(
+        static_cast<clang::tok::TokenKind>(id));
     Py_INCREF(Py_None);
     return Py_None;
 }

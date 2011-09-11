@@ -154,10 +154,10 @@ struct DynamicPragmaHandler : public clang::PragmaHandler
                 clang::Token *tokens(new clang::Token[result.size()]);
                 try
                 {
-                    tokens[0] = result[0].getToken();
+                    tokens[0] = result[0].getClangToken();
                     for (size_t i = 1; i < result.size(); ++i)
                     {
-                        tokens[i] = result[i].getToken();
+                        tokens[i] = result[i].getClangToken();
                         tokens[i].setFlag(clang::Token::LeadingSpace);
                     }
                 }
@@ -320,9 +320,9 @@ public:
             for (std::vector<cmonster::core::Token>::const_iterator
                      iter = value_tokens.begin();
                  iter != value_tokens.end(); ++iter)
-                macro->AddTokenToBody(iter->getToken());
+                macro->AddTokenToBody(iter->getClangToken());
             macro->setDefinitionEndLoc(
-                value_tokens.back().getToken().getLocation());
+                value_tokens.back().getClangToken().getLocation());
         }
 
         // Is there an existing macro which is different? Then don't define the
@@ -548,7 +548,7 @@ public:
 
     Token& next()
     {
-        m_current.setToken(m_next);
+        m_current.setClangToken(m_next);
         m_pp.Lex(m_next);
         if (m_impl.exception)
             boost::rethrow_exception(m_impl.exception);
@@ -780,7 +780,7 @@ std::ostream& Preprocessor::format(
              iter = tokens.begin(); iter != tokens.end(); ++iter)
     {
         Token const& token = *iter;
-        clang::SourceLocation loc = token.getToken().getLocation();
+        clang::SourceLocation loc = token.getClangToken().getLocation();
         clang::PresumedLoc ploc = sm.getPresumedLoc(loc);
         if (ploc.isValid())
         {
@@ -804,7 +804,7 @@ std::ostream& Preprocessor::format(
             }
             out << token;
             // TODO verify exactly getLength() chars were written
-            current_column += token.getToken().getLength();
+            current_column += token.getClangToken().getLength();
         }
     }
     return out;
