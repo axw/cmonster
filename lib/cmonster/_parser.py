@@ -18,20 +18,29 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-def cli_main():
-    # First up, parse the command line arguments.
-    import argparse
-    description = "C Preprocessor with Python macros"
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument(
-        "file", type=argparse.FileType("r"), nargs=1,
-        help="the file to preprocess")
-    args = parser.parse_args()
+from . import _cmonster
+from . import _preprocessor
+from . import config
 
-    # Create the preprocessor.
-    import sys
-    from . import Parser
+class Parser(_cmonster.Parser):
+    def __init__(self, filename, data=None):
+        if data is None:
+            if type(filename) is str:
+                data = open(filename).read()
+            else:
+                # Assume 'filename' is a file.
+                data = filename.read()
+                if hasattr(filename, "name"):
+                    filename = filename.name
+        _cmonster.Parser.__init__(self, data, filename)
 
-    parser = Parser(args.file[0])
-    parser.preprocessor.preprocess()
+        # TODO allow configuration of target preprocessor/compiler.
+        pp = self.preprocessor
+        config.configure(pp)
+
+        # XXX Should this be configurable?
+        pp.add_include_dir(".", False)
+
+        # Predefined macros.
+        pp.define('py_def', _preprocessor.PyDefHandler(pp))
 

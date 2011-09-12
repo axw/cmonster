@@ -20,25 +20,33 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "exception_diagnostic_client.hpp"
+#ifndef _CMONSTER_PYTHON_PARSER_HPP
+#define _CMONSTER_PYTHON_PARSER_HPP
 
-#include <llvm/ADT/SmallString.h>
+#include "../core/parser.hpp"
 
 namespace cmonster {
-namespace core {
-namespace impl {
+namespace python {
 
-ExceptionDiagnosticClient::ExceptionDiagnosticClient(
-    boost::exception_ptr &exception) : m_exception(exception) {}
+// Python object structure to wrap a cmonster::core::Parser.
+struct Parser;
 
-void
-ExceptionDiagnosticClient::HandleDiagnostic(
-    clang::Diagnostic::Level level, const clang::DiagnosticInfo &info)
-{
-    llvm::SmallString<64> formatted;
-    info.FormatDiagnostic(formatted);
-    m_exception = boost::copy_exception(std::runtime_error(formatted.c_str()));
-}
+/**
+ * Get the core parser from the Python wrapper object.
+ */
+cmonster::core::Parser& get_parser(Parser *wrapper);
 
-}}}
+/**
+ * Initialise the Parser Python type object.
+ */
+PyTypeObject* init_parser_type();
+
+/**
+ * Get the Parser Python type object.
+ */
+PyTypeObject* get_parser_type();
+
+}}
+
+#endif
 

@@ -46,6 +46,7 @@ private:
 
 namespace cmonster {
 namespace core {
+namespace impl {
 
 IncludeLocatorDiagnosticClient::IncludeLocatorDiagnosticClient(
     clang::Preprocessor &pp, clang::DiagnosticClient *delegate)
@@ -185,5 +186,5 @@ IncludeLocatorDiagnosticClient::setDelegate(clang::DiagnosticClient *delegate)
     m_delegate.reset(delegate);
 }
 
-}}
+}}}
 

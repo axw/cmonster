@@ -28,8 +28,16 @@ SOFTWARE.
 namespace cmonster {
 namespace python {
 
+// Forward declaration to Parser, to which the Preprocessor is bound.
+struct Parser;
+
 // Python object structure to wrap a cmonster::core::Preprocessor.
 struct Preprocessor;
+
+/**
+ * Create a new heap-allocated Preprocessor.
+ */
+Preprocessor* create_preprocessor(Parser *parser);
 
 /**
  * Get the core preprocessor from the Python wrapper object.

@@ -33,6 +33,7 @@ SOFTWARE.
 
 namespace cmonster {
 namespace core {
+namespace impl {
 
 class IncludeLocatorDiagnosticClient : public clang::DiagnosticClient
 {
@@ -71,7 +72,7 @@ private:
     clang::SourceLocation                   m_include_loc;
 };
 
-}}
+}}}
 
 #endif
 

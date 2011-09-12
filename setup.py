@@ -16,14 +16,15 @@ cfg_vars = distutils.sysconfig.get_config_vars()
 if "CFLAGS" in cfg_vars:
     cfg_vars["CFLAGS"] = cfg_vars["CFLAGS"].replace("-Wstrict-prototypes", "")
 
-# "_preprocessor" extension module.
-_preprocessor_extension = Extension(
-    "cmonster._preprocessor",
+# "_cmonster" extension module.
+_extension = Extension(
+    "cmonster._cmonster",
     [
         "src/cmonster/core/impl/exception_diagnostic_client.cpp",
         "src/cmonster/core/impl/include_locator_impl.cpp",
         "src/cmonster/core/impl/function_macro.cpp",
-        "src/cmonster/core/impl/preprocessor.cpp",
+        "src/cmonster/core/impl/parser.cpp",
+        "src/cmonster/core/impl/preprocessor_impl.cpp",
         "src/cmonster/core/impl/token_iterator.cpp",
         "src/cmonster/core/impl/token_predicate.cpp",
         "src/cmonster/core/impl/token.cpp",
@@ -31,6 +32,7 @@ _preprocessor_extension = Extension(
         "src/cmonster/python/include_locator.cpp",
         "src/cmonster/python/function_macro.cpp",
         "src/cmonster/python/module.cpp",
+        "src/cmonster/python/parser.cpp",
         "src/cmonster/python/preprocessor.cpp",
         "src/cmonster/python/token.cpp",
         "src/cmonster/python/token_iterator.cpp",
@@ -93,7 +95,7 @@ setup(
     packages = ["cmonster", "cmonster.config"],
     package_dir = {"": "lib"},
     scripts = ["scripts/cmonster"],
-    ext_modules=[_preprocessor_extension],
+    ext_modules=[_extension],
     author="Andrew Wilkins",
     author_email="axwalk@gmail.com",
     url="http://github.com/axw/cmonster",

@@ -28,27 +28,29 @@ SOFTWARE.
 
 #include <iostream>
 
+#include "parser.hpp"
 #include "preprocessor.hpp"
 #include "token_iterator.hpp"
 #include "token.hpp"
 
 #include <clang/Basic/TokenKinds.h>
 
-static PyModuleDef preprocessormodule = {
+static PyModuleDef cmonstermodule = {
     PyModuleDef_HEAD_INIT,
-    "_preprocessor",
-    "Extension module to expose a native C++ preprocessor.",
+    "_cmonster",
+    "Extension module to expose a native C++ parser/preprocessor.",
     -1,
     NULL, NULL, NULL, NULL, NULL
 };
 
 extern "C" {
 PyMODINIT_FUNC
-PyInit__preprocessor(void)
+PyInit__cmonster(void)
 {
-    PyObject *PreprocessorType =
-        (PyObject*)cmonster::python::init_preprocessor_type();
-    if (!PreprocessorType)
+    PyObject *ParserType = (PyObject*)cmonster::python::init_parser_type();
+    if (!ParserType)
+        return NULL;
+    if (!cmonster::python::init_preprocessor_type())
         return NULL;
     if (!cmonster::python::init_token_iterator_type())
         return NULL;
@@ -57,14 +59,14 @@ PyInit__preprocessor(void)
         return NULL;
 
     // Initialise module.
-    PyObject *module = PyModule_Create(&preprocessormodule);
+    PyObject *module = PyModule_Create(&cmonstermodule);
     if (!module)
         return NULL;
 
     // Add types.
-    Py_INCREF(PreprocessorType);
+    Py_INCREF(ParserType);
     Py_INCREF(TokenType);
-    PyModule_AddObject(module, "Preprocessor", PreprocessorType);
+    PyModule_AddObject(module, "Parser", ParserType);
     PyModule_AddObject(module, "Token", TokenType);
 
     // Add constants (token kinds).

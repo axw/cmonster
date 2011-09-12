@@ -29,6 +29,7 @@ SOFTWARE.
 
 namespace cmonster {
 namespace core {
+namespace impl {
 
 /**
  * Clang is compiled without exception support, so we have to make sure that
@@ -46,7 +47,7 @@ private:
     boost::exception_ptr &m_exception;
 };
 
-}}
+}}}
 
 #endif
 

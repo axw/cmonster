@@ -18,3 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+def configure(preprocessor):
+    # TODO make configurable/detectable
+    from . import gcc
+    gcc.configure(preprocessor)
+

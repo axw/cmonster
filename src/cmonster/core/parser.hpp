@@ -20,25 +20,38 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "exception_diagnostic_client.hpp"
+#ifndef _CMONSTER_CORE_PARSER_HPP
+#define _CMONSTER_CORE_PARSER_HPP
 
-#include <llvm/ADT/SmallString.h>
+#include "preprocessor.hpp"
+
+#include <boost/shared_ptr.hpp>
 
 namespace cmonster {
 namespace core {
-namespace impl {
 
-ExceptionDiagnosticClient::ExceptionDiagnosticClient(
-    boost::exception_ptr &exception) : m_exception(exception) {}
+class ParserImpl;
 
-void
-ExceptionDiagnosticClient::HandleDiagnostic(
-    clang::Diagnostic::Level level, const clang::DiagnosticInfo &info)
+/**
+ * The core configurable preprocessor class.
+ */
+class Parser
 {
-    llvm::SmallString<64> formatted;
-    info.FormatDiagnostic(formatted);
-    m_exception = boost::copy_exception(std::runtime_error(formatted.c_str()));
-}
+public:
+    Parser(const char *buffer,
+           size_t buflen,
+           const char *filename = "");
 
-}}}
+    /**
+     * Get the preprocessor owned by this parser.
+     */
+    Preprocessor& getPreprocessor();
+
+private:
+    boost::shared_ptr<ParserImpl> m_impl;
+};
+
+}}
+
+#endif
 

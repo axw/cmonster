@@ -25,6 +25,8 @@ SOFTWARE.
 #define Py_LIMITED_API
 
 #include <Python.h>
+
+#include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -33,6 +35,7 @@ SOFTWARE.
 #include "exception.hpp"
 #include "function_macro.hpp"
 #include "include_locator.hpp"
+#include "parser.hpp"
 #include "preprocessor.hpp"
 #include "scoped_pyobject.hpp"
 #include "token_iterator.hpp"
@@ -48,8 +51,18 @@ PyDoc_STRVAR(Preprocessor_doc, "Preprocessor objects");
 struct Preprocessor
 {
     PyObject_HEAD
+    Parser *parser;
     cmonster::core::Preprocessor *preprocessor;
 };
+
+Preprocessor* create_preprocessor(Parser *parser)
+{
+    ScopedPyObject args = Py_BuildValue("(O)", parser);
+    if (!args)
+        return NULL;
+    return (Preprocessor*)PyObject_CallObject(
+        (PyObject*)PreprocessorType, args);
+}
 
 static PyObject* Preprocessor_iter(Preprocessor *pp)
 {
@@ -66,8 +79,7 @@ static PyObject* Preprocessor_iter(Preprocessor *pp)
 
 static void Preprocessor_dealloc(Preprocessor* self)
 {
-    if (self->preprocessor)
-        delete self->preprocessor;
+    Py_XDECREF(self->parser);
     PyObject_Del((PyObject*)self);
 }
 
@@ -75,24 +87,18 @@ static void Preprocessor_dealloc(Preprocessor* self)
 static int
 Preprocessor_init(Preprocessor *self, PyObject *args, PyObject *kwds)
 {
-    char *buffer;
-    int buflen;
-    char *filename;
-    if (!PyArg_ParseTuple(args, "s#|s", &buffer, &buflen, &filename))
+    if (!PyArg_ParseTuple(args, "O", &self->parser))
         return -1;
 
-    try
+    if (!PyObject_TypeCheck(self->parser, get_parser_type()))
     {
-        // Create a core preprocessor object.
-        self->preprocessor = new cmonster::core::Preprocessor(
-            buffer, buflen, filename ? filename : "");
-        return 0;
+        PyErr_SetString(PyExc_TypeError, "expected Parser as argument");
+        return -1;
     }
-    catch (...)
-    {
-        set_python_exception();
-    }
-    return -1;
+
+    Py_INCREF(self->parser);
+    self->preprocessor = &get_parser(self->parser).getPreprocessor();
+    return 0;
 }
 
 static PyObject*
@@ -269,11 +275,38 @@ static PyObject* Preprocessor_tokenize(Preprocessor* self, PyObject *args)
 
 static PyObject* Preprocessor_preprocess(Preprocessor* self, PyObject *args)
 {
-    long fd;
-    if (!PyArg_ParseTuple(args, "l:preprocess", &fd))
+    PyObject *f = NULL;
+    if (!PyArg_ParseTuple(args, "|O:preprocess", &f))
         return NULL;
     try
     {
+        boost::shared_ptr<FILE> file;
+        long fd;
+        if (!f || f == Py_None)
+        {
+            fd = fileno(stdout);
+        }
+        else if (PyUnicode_Check(f))
+        {
+            ScopedPyObject utf8_filename(PyUnicode_AsUTF8String(f));
+            const char *filename;
+            if (utf8_filename && (filename = PyBytes_AsString(utf8_filename)))
+            {
+                file.reset(fopen(filename, "w"), &fclose);
+                fd = fileno(file.get());
+            }
+            else
+            {
+                return NULL;
+            }
+        }
+        else
+        {
+            // Assume it's a file-like object with a fileno() method.
+            PyObject *pylong = PyObject_CallMethod(f, (char*)"fileno", NULL);
+            if (!pylong || (fd = PyLong_AsLong(pylong)) == -1)
+                return NULL;
+        }
         self->preprocessor->preprocess(fd);
     }
     catch (...)
@@ -420,7 +453,7 @@ static PyType_Slot PreprocessorTypeSlots[] =
 
 static PyType_Spec PreprocessorTypeSpec =
 {
-    "cmonster._preprocessor.Preprocessor",
+    "cmonster._cmonster.Preprocessor",
     sizeof(Preprocessor),
     0,
     Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,
