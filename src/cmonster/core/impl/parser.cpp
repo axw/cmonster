@@ -21,12 +21,18 @@ SOFTWARE.
 */
 
 #include "../parser.hpp"
+#include "parse_result_impl.hpp"
 #include "preprocessor_impl.hpp"
 
 #include <boost/scoped_ptr.hpp>
 
 #include <clang/Basic/TargetInfo.h>
+#include <clang/Parse/Parser.h>
+#include <clang/Sema/Sema.h>
+#include <clang/Sema/SemaConsumer.h>
 #include <llvm/Support/Host.h>
+
+#include <iostream>
 
 namespace cmonster {
 namespace core {
@@ -73,6 +79,15 @@ public:
                 llvm::StringRef(buffer, buflen), filename));
 
         m_preprocessor.reset(new impl::PreprocessorImpl(m_compiler));
+
+        // Initialise parser and co.
+        m_compiler.createASTContext();
+        clang::SemaConsumer *semaConsumer = new clang::SemaConsumer;
+        m_compiler.setASTConsumer(semaConsumer);
+        m_compiler.createSema(clang::TU_Complete, NULL);
+        semaConsumer->InitializeSema(m_compiler.getSema());
+        m_parser.reset(new clang::Parser(
+            m_compiler.getPreprocessor(), m_compiler.getSema()));
     }
 
     Preprocessor& getPreprocessor()
@@ -80,9 +95,19 @@ public:
         return *m_preprocessor;
     }
 
+    ParseResult parse()
+    {
+        m_compiler.getPreprocessor().EnterMainSourceFile();
+        m_parser->ParseTranslationUnit();
+        m_preprocessor->check_exception();
+        return ParseResult(boost::shared_ptr<ParseResultImpl>(
+            new ParseResultImpl(m_compiler.getASTContext())));
+    }
+
 private:
     clang::CompilerInstance                   m_compiler;
     boost::scoped_ptr<impl::PreprocessorImpl> m_preprocessor;
+    boost::scoped_ptr<clang::Parser>          m_parser;
 };
 
 
@@ -96,6 +121,11 @@ Parser::Parser(const char *buffer,
 Preprocessor& Parser::getPreprocessor()
 {
     return m_impl->getPreprocessor();
+}
+
+ParseResult Parser::parse()
+{
+    return m_impl->parse();
 }
 
 }}

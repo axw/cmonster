@@ -20,42 +20,40 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CMONSTER_CORE_PARSER_HPP
-#define _CMONSTER_CORE_PARSER_HPP
+#ifndef _CMONSTER_PYTHON_PARSERESULT_HPP
+#define _CMONSTER_PYTHON_PARSERESULT_HPP
 
-#include "preprocessor.hpp"
-#include "parse_result.hpp"
-
-#include <boost/shared_ptr.hpp>
+#include "../core/parse_result.hpp"
 
 namespace cmonster {
-namespace core {
+namespace python {
 
-class ParserImpl;
+// Forward declaration to Parser, to which the ParseResult is bound.
+struct Parser;
+
+// Python object structure to wrap a cmonster::core::ParseResult.
+struct ParseResult;
 
 /**
- * The core configurable preprocessor class.
+ * Create a new ParseResult Python object.
  */
-class Parser
-{
-public:
-    Parser(const char *buffer,
-           size_t buflen,
-           const char *filename = "");
+ParseResult*
+create_parse_result(Parser *parser, cmonster::core::ParseResult const& result);
 
-    /**
-     * Get the preprocessor owned by this parser.
-     */
-    Preprocessor& getPreprocessor();
+/**
+ * Get the core parse result from the Python wrapper object.
+ */
+cmonster::core::ParseResult& get_parse_result(ParseResult *wrapper);
 
-    /**
-     * Parse the translation unit.
-     */
-    ParseResult parse();
+/**
+ * Initialise the ParseResult Python type object.
+ */
+PyTypeObject* init_parse_result_type();
 
-private:
-    boost::shared_ptr<ParserImpl> m_impl;
-};
+/**
+ * Get the ParseResult Python type object.
+ */
+PyTypeObject* get_parse_result_type();
 
 }}
 

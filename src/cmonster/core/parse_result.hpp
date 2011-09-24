@@ -20,41 +20,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CMONSTER_CORE_PARSER_HPP
-#define _CMONSTER_CORE_PARSER_HPP
+#ifndef _CMONSTER_CORE_IMPL_PARSERESULT_HPP
+#define _CMONSTER_CORE_IMPL_PARSERESULT_HPP
 
-#include "preprocessor.hpp"
-#include "parse_result.hpp"
+#include <clang/AST/ASTContext.h>
 
 #include <boost/shared_ptr.hpp>
 
 namespace cmonster {
 namespace core {
 
-class ParserImpl;
+class ParseResultImpl;
 
-/**
- * The core configurable preprocessor class.
- */
-class Parser
+class ParseResult
 {
 public:
-    Parser(const char *buffer,
-           size_t buflen,
-           const char *filename = "");
+    ParseResult(boost::shared_ptr<ParseResultImpl> const& impl);
 
     /**
-     * Get the preprocessor owned by this parser.
+     * Get the ASTContext that was populated by a call to
+     * cmonster::core::Parser::parse.
      */
-    Preprocessor& getPreprocessor();
-
-    /**
-     * Parse the translation unit.
-     */
-    ParseResult parse();
+    clang::ASTContext& getClangASTContext();
 
 private:
-    boost::shared_ptr<ParserImpl> m_impl;
+    boost::shared_ptr<ParseResultImpl> m_impl;
 };
 
 }}

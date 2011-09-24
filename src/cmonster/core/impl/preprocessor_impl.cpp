@@ -594,8 +594,7 @@ void PreprocessorImpl::preprocess(long fd)
 
     clang::DoPrintPreprocessedInput(
         m_compiler.getPreprocessor(), &out, opts);
-    if (m_exception)
-        boost::rethrow_exception(m_exception);
+    check_exception();
 }
 
 TokenIterator* PreprocessorImpl::create_iterator()
@@ -695,8 +694,7 @@ Token* PreprocessorImpl::next(bool expand)
         pp.Lex(tok);
     else
         pp.LexUnexpandedToken(tok);
-    if (m_exception)
-        boost::rethrow_exception(m_exception);
+    check_exception();
     return new Token(m_compiler.getPreprocessor(), tok);
 }
 
@@ -756,6 +754,16 @@ Token* PreprocessorImpl::create_token(clang::tok::TokenKind kind,
 {
     return new Token(m_compiler.getPreprocessor(),
                      kind, value, value_len);
+}
+
+void PreprocessorImpl::check_exception()
+{
+    if (m_exception)
+    {
+        boost::exception_ptr exception;
+        std::swap(exception, m_exception);
+        boost::rethrow_exception(exception);
+    }
 }
 
 }}}

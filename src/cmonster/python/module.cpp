@@ -29,6 +29,7 @@ SOFTWARE.
 #include <iostream>
 
 #include "parser.hpp"
+#include "parse_result.hpp"
 #include "preprocessor.hpp"
 #include "token_iterator.hpp"
 #include "token.hpp"
@@ -49,6 +50,8 @@ PyInit__cmonster(void)
 {
     PyObject *ParserType = (PyObject*)cmonster::python::init_parser_type();
     if (!ParserType)
+        return NULL;
+    if (!cmonster::python::init_parse_result_type())
         return NULL;
     if (!cmonster::python::init_preprocessor_type())
         return NULL;

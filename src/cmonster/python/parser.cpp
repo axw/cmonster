@@ -31,6 +31,7 @@ SOFTWARE.
 
 #include "exception.hpp"
 #include "parser.hpp"
+#include "parse_result.hpp"
 #include "preprocessor.hpp"
 #include "scoped_pyobject.hpp"
 
@@ -78,26 +79,23 @@ Parser_init(Parser *self, PyObject *args, PyObject *kwds)
     return -1;
 }
 
+static PyObject* Parser_parse(Parser *self, PyObject *args)
+{
+    try
+    {
+        cmonster::core::ParseResult result = self->parser->parse();
+        return (PyObject*)create_parse_result(self, result);
+    }
+    catch (...)
+    {
+        set_python_exception();
+    }
+    return NULL;
+}
+
 static PyMethodDef Parser_methods[] =
 {
-/*
-    {(char*)"add_include_dir",
-     (PyCFunction)&Parser_add_include_dir, METH_VARARGS},
-    {(char*)"define",
-     (PyCFunction)&Parser_define, METH_VARARGS},
-    {(char*)"add_pragma",
-     (PyCFunction)&Parser_add_pragma, METH_VARARGS},
-    {(char*)"tokenize",
-     (PyCFunction)&Parser_tokenize, METH_VARARGS},
-    {(char*)"preprocess",
-     (PyCFunction)&Parser_preprocess, METH_VARARGS},
-    {(char*)"next",
-     (PyCFunction)&Parser_next, METH_VARARGS},
-    {(char*)"format_tokens",
-     (PyCFunction)&Parser_format_tokens, METH_VARARGS},
-    {(char*)"set_include_locator",
-     (PyCFunction)&Parser_set_include_locator, METH_VARARGS},
-*/
+    {(char*)"parse", (PyCFunction)&Parser_parse, METH_VARARGS},
     {NULL}
 };
 

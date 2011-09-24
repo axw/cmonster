@@ -102,6 +102,11 @@ public:
      */
     void set_include_locator(boost::shared_ptr<IncludeLocator> const& locator);
 
+    /**
+     * Check if an exception is pending, and if so, throw it.
+     */
+    void check_exception();
+
 private: // Methods
     bool add_pragma(std::string const& name,
                     boost::shared_ptr<FunctionMacro> const& handler,
