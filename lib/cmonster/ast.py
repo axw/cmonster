@@ -18,29 +18,5 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import sys
-if sys.version_info < (3, 2):
-    print >> sys.stderr, "Python version 3.2+ is required"
-    sys.exit(1)
-
-# Set RTLD_GLOBAL when importing '_cmonster', so its symbols may be used by
-# '_ast'. This is an ugly hack. How should we best fix it? I'd like if we just
-# had one shared library.
-import ctypes
-import sys
-oldflags = sys.getdlopenflags()
-sys.setdlopenflags(oldflags | ctypes.RTLD_GLOBAL)
-
-# Import the extension module's contents, so we get all of the token IDs.
-from ._cmonster import *
-from ._parser import Parser
-from ._preprocessor import Preprocessor
-
-# Reinstate old flags.
-sys.setdlopenflags(oldflags)
-
-# Define the names to import from this module.
-__all__ = [
-    "ast", "Parser", "Preprocessor", "Token"
-] + [name for name in locals() if name.startswith("tok_")]
+from ._ast import *
 

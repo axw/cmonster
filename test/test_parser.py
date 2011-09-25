@@ -22,18 +22,49 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 
 import cmonster
+import cmonster.ast
 import os
 import unittest
 
 class TestParser(unittest.TestCase):
     def test_parse_function(self):
-        pp = cmonster.Parser("test.c", data="int func(int x) {return 123;}")
+        pp = cmonster.Parser("test.c", data="char func(int x) {return 123;}")
         result = pp.parse()
-        # TODO verify that we've got a function called "func".
+        self.assertIsNotNone(result)
 
+        # There's always a builtin typedef declaration first (should we report
+        # this to the user?), so we should have two declarations in total, with
+        # the second one being the function.
         tu = result.translation_unit
         decls = [d for d in tu.declarations]
-        print(decls[1].parameters)
+        self.assertEqual(2, len(decls))
+        self.assertIsInstance(decls[1], cmonster.ast.FunctionDecl, decls[1])
+        func_decl = decls[1]
+
+        # Check the function name and return type.
+        self.assertEqual("func", func_decl.name)
+        func_type = func_decl.type
+        self.assertIsInstance(func_type.type, cmonster.ast.FunctionType)
+        self.assertIsInstance(
+            func_type.type.result_type.type,
+            cmonster.ast.BuiltinType)
+        self.assertEqual(
+            cmonster.ast.BuiltinType.Char_S,
+            func_type.type.result_type.type.kind)
+
+        # Check the parameter type.
+        self.assertEqual(1, len(func_decl.parameters))
+        self.assertEqual("x", func_decl.parameters[0].name)
+        self.assertIsInstance(
+            func_decl.parameters[0].type.type,
+            cmonster.ast.BuiltinType)
+        self.assertEqual(
+            cmonster.ast.BuiltinType.Int,
+            func_decl.parameters[0].type.type.kind)
+
+        # TODO check the body...
+        body = func_decl.body
+        self.assertIsNotNone(body)
 
 
     def test_invalid_toplevel_decl(self):
