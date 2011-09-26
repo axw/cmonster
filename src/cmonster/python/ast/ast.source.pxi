@@ -20,18 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from cpython.pycapsule cimport PyCapsule_IsValid, PyCapsule_GetPointer
-from cython.operator cimport dereference as deref
-from cython.operator cimport preincrement as inc
+cdef class SourceLocation:
+    cdef source.SourceLocation *ptr
+    def __dealloc__(self):
+        if self.ptr: del self.ptr
 
-cimport clangtypes
-cimport decls
-cimport source
-cimport statements
-
-include "ast.decls.pxi"
-include "ast.declcontext.pxi"
-include "ast.source.pxi"
-include "ast.statements.pxi"
-include "ast.types.pxi"
+cdef SourceLocation create_SourceLocation(source.SourceLocation loc):
+    cdef SourceLocation sl = SourceLocation()
+    sl.ptr = new source.SourceLocation(loc)
+    return sl
 

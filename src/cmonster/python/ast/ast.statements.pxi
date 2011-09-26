@@ -20,18 +20,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from cpython.pycapsule cimport PyCapsule_IsValid, PyCapsule_GetPointer
-from cython.operator cimport dereference as deref
-from cython.operator cimport preincrement as inc
+cdef class Statement:
+    cdef statements.Stmt *ptr
+    property class_name:
+        def __get__(self):
+            return (<bytes>self.ptr.getStmtClassName()).decode()
 
-cimport clangtypes
-cimport decls
-cimport source
-cimport statements
-
-include "ast.decls.pxi"
-include "ast.declcontext.pxi"
-include "ast.source.pxi"
-include "ast.statements.pxi"
-include "ast.types.pxi"
+cdef Statement create_Statement(statements.Stmt *ptr):
+    cdef Statement stmt = Statement()
+    stmt.ptr = ptr
+    return stmt
 
