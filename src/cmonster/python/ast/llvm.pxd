@@ -20,22 +20,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from cpython.pycapsule cimport PyCapsule_IsValid, PyCapsule_GetPointer
-from cython.operator cimport dereference as deref
-from cython.operator cimport preincrement as inc
 from libc.stdint cimport uint64_t
 
-cimport llvm
-cimport clang.exprs
-cimport clang.types
-cimport clang.decls
-cimport clang.source
-cimport clang.statements
+cdef extern from "llvm/ADT/APInt.h" namespace "llvm":
+    ctypedef uint64_t* const_uint64_t_ptr "const uint64_t*"
 
-include "ast.source.pxi"
-include "ast.types.pxi"
-include "ast.decls.pxi"
-include "ast.declcontext.pxi"
-include "ast.statements.pxi"
-include "ast.exprs.pxi"
+    cdef cppclass APInt:
+        const_uint64_t_ptr getRawData()
+        unsigned getNumWords()
 

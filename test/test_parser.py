@@ -28,7 +28,7 @@ import unittest
 
 class TestParser(unittest.TestCase):
     def test_parse_function(self):
-        pp = cmonster.Parser("test.c", data="char func(int x) {return 123;}")
+        pp = cmonster.Parser("test.c", data="char func(int x) {return 123L;}")
         result = pp.parse()
         self.assertIsNotNone(result)
 
@@ -65,6 +65,13 @@ class TestParser(unittest.TestCase):
         # TODO check the body...
         body = func_decl.body
         self.assertIsNotNone(body)
+        self.assertEqual(1, len(body))
+        self.assertIsInstance(body[0], cmonster.ast.ReturnStatement)
+        return_value = body[0].return_value
+        self.assertEqual(
+            cmonster.ast.BuiltinType.Long,
+            return_value.subexpr.type.type.kind)
+        self.assertEqual(123, return_value.subexpr.value)
 
 
     def test_invalid_toplevel_decl(self):

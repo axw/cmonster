@@ -18,9 +18,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cimport clangtypes
-cimport source
-cimport statements
+cimport clang.types
+cimport clang.source
+cimport clang.statements
 
 
 cdef extern from "string":
@@ -57,18 +57,18 @@ cdef extern from "clang/AST/DeclBase.h" namespace "clang":
         decl_iterator decls_end()
 
     cdef cppclass Decl:
-        source.SourceLocation getLocation()
+        clang.source.SourceLocation getLocation()
         Kind getKind()
         char *getDeclKindName()
         DeclContext *getDeclContext()
-        statements.Stmt* getBody()
+        clang.statements.Stmt* getBody()
         bint hasBody()
 
     cdef cppclass NamedDecl(Decl):
         string getNameAsString()
 
     cdef cppclass ValueDecl(NamedDecl):
-        clangtypes.QualType getType()
+        clang.types.QualType getType()
 
     cdef cppclass DeclaratorDecl(ValueDecl):
         pass

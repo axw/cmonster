@@ -25,7 +25,7 @@
 # Decl base class.
 
 cdef class Decl:
-    cdef decls.Decl *ptr
+    cdef clang.decls.Decl *ptr
 
     def __str__(self):
         return self.kind_name
@@ -50,19 +50,21 @@ cdef class Decl:
 
     property body:
         def __get__(self):
-            cdef statements.Stmt *ptr = self.ptr.getBody()
+            cdef clang.statements.Stmt *ptr = self.ptr.getBody()
             if ptr == NULL:
                 return None
-            return create_Statement(ptr)
+            stmt = create_Statement(ptr)
+            assert type(stmt) is CompoundStatement
+            return stmt.body
 
     property decl_context:
         def __get__(self): return self.__getDeclContext()
 
 
-cdef Decl create_Decl(decls.Decl *d):
+cdef Decl create_Decl(clang.decls.Decl *d):
     cdef Decl decl = {
-        decls.Function: FunctionDecl,
-        decls.ParmVar: ParmVarDecl,
+        clang.decls.Function: FunctionDecl,
+        clang.decls.ParmVar: ParmVarDecl,
     }.get(d.getKind(), Decl)()
     decl.ptr = d
     return decl
@@ -73,14 +75,15 @@ cdef class NamedDecl(Decl):
     property name:
         def __get__(self):
             cdef bytes name = \
-                (<decls.ValueDecl*>self.ptr).getNameAsString().c_str()
+                (<clang.decls.ValueDecl*>self.ptr).getNameAsString().c_str()
             return name.decode()
 
 
 cdef class ValueDecl(NamedDecl):
     property type:
         def __get__(self):
-            return create_QualType((<decls.ValueDecl*>self.ptr).getType())
+            return create_QualType(
+                (<clang.decls.ValueDecl*>self.ptr).getType())
 
 
 cdef class DeclaratorDecl(ValueDecl):
@@ -103,14 +106,17 @@ cdef class TranslationUnitDecl(Decl):
 
     def __init__(self, parser, capsule):
         assert PyCapsule_IsValid(capsule, <char*>0)
-        cdef decls.TranslationUnitDecl *tu = \
-            <decls.TranslationUnitDecl*>PyCapsule_GetPointer(capsule, <char*>0)
+        cdef clang.decls.TranslationUnitDecl *tu = \
+            <clang.decls.TranslationUnitDecl*>PyCapsule_GetPointer(
+                capsule, <char*>0)
         self.parser = parser
         self.ptr = tu
 
     cdef DeclContext __getDeclContext(self):
         cdef DeclContext dc = DeclContext(self)
-        dc.ptr = <decls.DeclContext*><decls.TranslationUnitDecl*>self.ptr
+        cdef clang.decls.TranslationUnitDecl *tu = \
+            <clang.decls.TranslationUnitDecl*>self.ptr
+        dc.ptr = <clang.decls.DeclContext*>tu
         return dc
 
     property declarations:
@@ -121,10 +127,10 @@ cdef class TranslationUnitDecl(Decl):
 ###############################################################################
 
 cdef class ParmVarDeclIterator:
-    cdef decls.ParmVarDecl **begin
-    cdef decls.ParmVarDecl **end
+    cdef clang.decls.ParmVarDecl **begin
+    cdef clang.decls.ParmVarDecl **end
     def __next__(self):
-        cdef decls.ParmVarDecl *decl
+        cdef clang.decls.ParmVarDecl *decl
         if self.begin != self.end:
             decl = deref(self.begin)
             inc(self.begin)
@@ -133,7 +139,7 @@ cdef class ParmVarDeclIterator:
 
 
 cdef class FunctionParameterList:
-    cdef decls.FunctionDecl *function
+    cdef clang.decls.FunctionDecl *function
     def __len__(self):
         return self.function.param_size()
     def __iter__(self):
@@ -152,12 +158,13 @@ cdef class FunctionParameterList:
 cdef class FunctionDecl(DeclaratorDecl):
     property variadic:
         def __get__(self):
-            return (<decls.FunctionDecl*>self.ptr).isVariadic()
+            return (<clang.decls.FunctionDecl*>self.ptr).isVariadic()
 
     property parameters:
         def __get__(self):
-            cdef decls.FunctionDecl *fd = <decls.FunctionDecl*>self.ptr
+            cdef clang.decls.FunctionDecl *fd = \
+                <clang.decls.FunctionDecl*>self.ptr
             cdef FunctionParameterList params = FunctionParameterList()
-            params.function = <decls.FunctionDecl*>self.ptr
+            params.function = <clang.decls.FunctionDecl*>self.ptr
             return params
 

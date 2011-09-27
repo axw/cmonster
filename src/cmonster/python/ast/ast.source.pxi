@@ -21,12 +21,12 @@
 # SOFTWARE.
 
 cdef class SourceLocation:
-    cdef source.SourceLocation *ptr
+    cdef clang.source.SourceLocation *ptr
     def __dealloc__(self):
         if self.ptr: del self.ptr
 
-cdef SourceLocation create_SourceLocation(source.SourceLocation loc):
+cdef SourceLocation create_SourceLocation(clang.source.SourceLocation loc):
     cdef SourceLocation sl = SourceLocation()
-    sl.ptr = new source.SourceLocation(loc)
+    sl.ptr = new clang.source.SourceLocation(loc)
     return sl
 

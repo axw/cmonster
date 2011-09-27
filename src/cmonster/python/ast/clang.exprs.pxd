@@ -20,22 +20,26 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from cpython.pycapsule cimport PyCapsule_IsValid, PyCapsule_GetPointer
-from cython.operator cimport dereference as deref
-from cython.operator cimport preincrement as inc
-from libc.stdint cimport uint64_t
+from clang.statements cimport Stmt
+from clang.types cimport QualType
+from llvm cimport APInt
 
-cimport llvm
-cimport clang.exprs
-cimport clang.types
-cimport clang.decls
-cimport clang.source
-cimport clang.statements
+cdef extern from "clang/AST/Expr.h" namespace "clang::CastExpr":
+    cdef enum CastKind:
+        pass
 
-include "ast.source.pxi"
-include "ast.types.pxi"
-include "ast.decls.pxi"
-include "ast.declcontext.pxi"
-include "ast.statements.pxi"
-include "ast.exprs.pxi"
+cdef extern from "clang/AST/Expr.h" namespace "clang":
+    cdef cppclass Expr(Stmt):
+        QualType getType()
+
+    cdef cppclass CastExpr(Expr):
+        CastKind getCastKind()
+        char* getCastKindName()
+        Expr* getSubExpr()
+
+    cdef cppclass ImplicitCastExpr(CastExpr):
+        pass
+
+    cdef cppclass IntegerLiteral(Expr):
+        APInt getValue()
 

@@ -27,9 +27,9 @@ cdef class DeclarationIterator:
     """
 
     cdef readonly object translation_unit
-    cdef decls.decl_iterator *begin
-    cdef decls.decl_iterator *next_
-    cdef decls.decl_iterator *end
+    cdef clang.decls.decl_iterator *begin
+    cdef clang.decls.decl_iterator *next_
+    cdef clang.decls.decl_iterator *end
 
     def __cinit__(self, translation_unit):
         self.translation_unit = translation_unit
@@ -46,7 +46,7 @@ cdef class DeclarationIterator:
         return self
 
     def __next__(self):
-        cdef decls.Decl *result
+        cdef clang.decls.Decl *result
         if deref(self.next_) != deref(self.end):
             result = deref(deref(self.next_))
             inc(deref(self.next_))
@@ -56,7 +56,7 @@ cdef class DeclarationIterator:
 
 cdef class DeclContext:
     cdef readonly object translation_unit
-    cdef decls.DeclContext *ptr
+    cdef clang.decls.DeclContext *ptr
     def __cinit__(self, object translation_unit):
         self.translation_unit = translation_unit
         self.ptr = NULL
@@ -68,8 +68,8 @@ cdef class DeclContext:
         def __get__(self):
             cdef DeclarationIterator iter_ = \
                 DeclarationIterator(self.translation_unit)
-            iter_.begin = new decls.decl_iterator(self.ptr.decls_begin())
+            iter_.begin = new clang.decls.decl_iterator(self.ptr.decls_begin())
             iter_.next_ = iter_.begin
-            iter_.end = new decls.decl_iterator(self.ptr.decls_end())
+            iter_.end = new clang.decls.decl_iterator(self.ptr.decls_end())
             return iter_
 

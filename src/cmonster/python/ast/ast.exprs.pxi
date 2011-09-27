@@ -1,3 +1,5 @@
+# vim: set filetype=pyrex:
+
 # Copyright (c) 2011 Andrew Wilkins <axwalk@gmail.com>
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,13 +20,37 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cdef extern from "clang/AST/Stmt.h" namespace "clang::Stmt":
-    cdef enum StmtClass:
-        pass
 
-cdef extern from "clang/AST/Stmt.h" namespace "clang":
-    cdef cppclass Stmt:
-        StmtClass getStmtClass()
-        char* getStmtClassName()
-        
+cdef class Expr(Statement):
+    property type:
+        def __get__(self):
+            return create_QualType((<clang.exprs.Expr*>self.ptr).getType())
+
+
+cdef class CastExpr(Expr):
+    property subexpr:
+        def __get__(self):
+            cdef clang.exprs.CastExpr *this = <clang.exprs.CastExpr*>self.ptr
+            cdef clang.exprs.Expr *expr = this.getSubExpr()
+            if expr != NULL:
+                return create_Statement(expr)
+
+
+cdef class ImplicitCastExpr(CastExpr):
+    pass
+
+
+cdef class IntegerLiteral(Expr):
+    property value:
+        def __get__(self):
+            cdef clang.exprs.IntegerLiteral*this = \
+                <clang.exprs.IntegerLiteral*>self.ptr
+            cdef llvm.APInt apint = this.getValue()
+            cdef unsigned nwords = apint.getNumWords()
+            cdef llvm.const_uint64_t_ptr words = apint.getRawData()
+            # TODO Verify that words are stored in MSB order.
+            value = 0
+            for i from 0 <= i < nwords:
+                value = (value << 64) | words[i]
+            return value
 
