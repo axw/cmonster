@@ -81,7 +81,26 @@ _cmonster_extension = Extension(
 )
 
 _ast_extension = Extension(
-    "cmonster._ast", ["src/cmonster/python/ast/ast.pyx"],
+    "cmonster._ast",
+    [
+        "src/cmonster/python/ast/ast.pyx",
+
+        "src/cmonster/python/ast/clang.astcontext.pxd",
+        "src/cmonster/python/ast/clang.decls.pxd",
+        "src/cmonster/python/ast/clang.exprs.pxd",
+        "src/cmonster/python/ast/clang.source.pxd",
+        "src/cmonster/python/ast/clang.statements.pxd",
+        "src/cmonster/python/ast/clang.types.pxd",
+        "src/cmonster/python/ast/llvm.pxd",
+
+        "src/cmonster/python/ast/ast.astcontext.pxi",
+        "src/cmonster/python/ast/ast.declcontext.pxi",
+        "src/cmonster/python/ast/ast.decls.pxi",
+        "src/cmonster/python/ast/ast.exprs.pxi",
+        "src/cmonster/python/ast/ast.source.pxi",
+        "src/cmonster/python/ast/ast.statements.pxi",
+        "src/cmonster/python/ast/ast.types.pxi"
+    ],
     language = "c++",
     define_macros = _cmonster_extension.define_macros,
     include_dirs = _cmonster_extension.include_dirs,

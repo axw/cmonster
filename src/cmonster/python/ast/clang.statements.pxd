@@ -27,6 +27,8 @@ cdef extern from "clang/AST/Stmt.h" namespace "clang::Stmt":
         ReturnStmtClass
         ImplicitCastExprClass
         IntegerLiteralClass
+        UnaryOperatorClass
+        DeclRefExprClass
 
 
 cdef extern from "clang/AST/StmtIterator.h" namespace "clang":

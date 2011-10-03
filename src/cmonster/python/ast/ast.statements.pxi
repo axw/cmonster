@@ -112,7 +112,9 @@ cdef Statement create_Statement(clang.statements.Stmt *ptr):
         clang.statements.CompoundStmtClass: CompoundStatement,
         clang.statements.ReturnStmtClass: ReturnStatement,
         clang.statements.ImplicitCastExprClass: ImplicitCastExpr,
-        clang.statements.IntegerLiteralClass: IntegerLiteral
+        clang.statements.UnaryOperatorClass: UnaryOperator,
+        clang.statements.IntegerLiteralClass: IntegerLiteral,
+        clang.statements.DeclRefExprClass: DeclRefExpr
     }.get(ptr.getStmtClass(), Statement)()
     stmt.ptr = ptr
     return stmt

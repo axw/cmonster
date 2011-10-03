@@ -18,10 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+cimport clang.astcontext
+cimport clang.exprs
 cimport clang.types
 cimport clang.source
 cimport clang.statements
-
 
 cdef extern from "string":
     cdef cppclass string:
@@ -63,6 +64,8 @@ cdef extern from "clang/AST/DeclBase.h" namespace "clang":
         DeclContext *getDeclContext()
         clang.statements.Stmt* getBody()
         bint hasBody()
+        clang.astcontext.ASTContext &getASTContext()
+        Decl* getCanonicalDecl()
 
     cdef cppclass NamedDecl(Decl):
         string getNameAsString()
@@ -74,7 +77,7 @@ cdef extern from "clang/AST/DeclBase.h" namespace "clang":
         pass
 
     cdef cppclass VarDecl(DeclaratorDecl):
-        pass
+        clang.exprs.Expr *getInit()
 
     cdef cppclass ParmVarDecl(Decl):
         pass

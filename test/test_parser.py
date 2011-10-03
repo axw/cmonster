@@ -28,8 +28,8 @@ import unittest
 
 class TestParser(unittest.TestCase):
     def test_parse_function(self):
-        pp = cmonster.Parser("test.c", data="char func(int x) {return 123L;}")
-        result = pp.parse()
+        p = cmonster.Parser("test.c", data="char func(int x) {return 123L;}")
+        result = p.parse()
         self.assertIsNotNone(result)
 
         # There's always a builtin typedef declaration first (should we report
@@ -75,12 +75,56 @@ class TestParser(unittest.TestCase):
 
 
     def test_invalid_toplevel_decl(self):
-        pp = cmonster.Parser(
+        p = cmonster.Parser(
             "test.c",
             data="abc")
         with self.assertRaises(Exception):
             parser.parse()
 
+
+    def test_location(self):
+        p = cmonster.Parser(
+            "my_file.c",
+            data="""\
+/* Comment */
+int main()
+{
+    return 0;
+}
+""")
+        result = p.parse()
+        decls = [d for d in result.translation_unit.declarations]
+        self.assertEqual(2, len(decls))
+        self.assertEqual("<built-in>", decls[0].location.filename)
+        self.assertEqual("my_file.c", decls[1].location.filename)
+        self.assertEqual(2, decls[1].location.line)
+        self.assertEqual(5, decls[1].location.column) # function name loc
+
+
+    def test_unary_operator(self):
+        p = cmonster.Parser("test.c", data="int x = 123; int y = ++x;")
+        result = p.parse()
+        decls = [d for d in result.translation_unit.declarations]
+        self.assertEqual(3, len(decls))
+        self.assertIsInstance(decls[1], cmonster.ast.VarDecl)
+        self.assertIsInstance(decls[2], cmonster.ast.VarDecl)
+
+        x_init = decls[1].initializer
+        self.assertIsInstance(x_init, cmonster.ast.IntegerLiteral)
+        self.assertEqual(123, x_init.value)
+        y_init = decls[2].initializer
+        self.assertIsNotNone(y_init)
+        self.assertIsInstance(y_init, cmonster.ast.CastExpr)
+        self.assertIsInstance(y_init.subexpr, cmonster.ast.UnaryOperator)
+        self.assertEqual(
+            cmonster.ast.UnaryOperator.PreInc, y_init.subexpr.opcode)
+        self.assertIsInstance(y_init.subexpr.subexpr, cmonster.ast.DeclRefExpr)
+        self.assertIsInstance(
+            y_init.subexpr.subexpr.decl, cmonster.ast.VarDecl)
+        # FIXME (maybe?) decls/exprs/statements, etc. should be cached, so
+        # creating a Python object from a Clang AST pointer will always yield
+        # the same object, so we can test for equality.
+        self.assertIs(decls[1], y_init.subexpr.subexpr.decl)
 
 if __name__ == "__main__":
     unittest.main()

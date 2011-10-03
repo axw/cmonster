@@ -22,7 +22,24 @@
 
 from clang.statements cimport Stmt
 from clang.types cimport QualType
+from clang.decls cimport ValueDecl
 from llvm cimport APInt
+
+cdef extern from "clang/AST/OperationKinds.h" namespace "clang":
+    cdef enum UnaryOperatorKind:
+        UO_PostInc
+        UO_PostDec
+        UO_PreInc
+        UO_PreDec
+        UO_AddrOf
+        UO_Deref
+        UO_Plus
+        UO_Minus
+        UO_Not
+        UO_LNot
+        UO_Real
+        UO_Imag
+        UO_Extension
 
 cdef extern from "clang/AST/Expr.h" namespace "clang::CastExpr":
     cdef enum CastKind:
@@ -37,9 +54,16 @@ cdef extern from "clang/AST/Expr.h" namespace "clang":
         char* getCastKindName()
         Expr* getSubExpr()
 
+    cdef cppclass DeclRefExpr(Expr):
+        ValueDecl* getDecl()
+
     cdef cppclass ImplicitCastExpr(CastExpr):
         pass
 
     cdef cppclass IntegerLiteral(Expr):
         APInt getValue()
+
+    cdef cppclass UnaryOperator(Expr):
+        UnaryOperatorKind getOpcode()
+        Expr* getSubExpr()
 

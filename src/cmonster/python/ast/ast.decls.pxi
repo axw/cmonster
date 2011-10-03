@@ -37,10 +37,13 @@ cdef class Decl:
         return dc
 
     def __repr__(self):
-        return "Decl(%s)" % self.kind_name
+        return "Decl(%s, ptr=0x%08x)" % (self.kind_name, <long>self.ptr)
 
     property location:
-        def __get__(self): return create_SourceLocation(self.ptr.getLocation())
+        def __get__(self):
+            cdef clang.astcontext.ASTContext *ctx = &self.ptr.getASTContext()
+            cdef clang.source.SourceManager *srcmgr = &ctx.getSourceManager()
+            return create_SourceLocation(self.ptr.getLocation(), srcmgr)
 
     property kind:
         def __get__(self): return self.ptr.getKind()
@@ -64,6 +67,7 @@ cdef class Decl:
 cdef Decl create_Decl(clang.decls.Decl *d):
     cdef Decl decl = {
         clang.decls.Function: FunctionDecl,
+        clang.decls.Var: VarDecl,
         clang.decls.ParmVar: ParmVarDecl,
     }.get(d.getKind(), Decl)()
     decl.ptr = d
@@ -91,7 +95,12 @@ cdef class DeclaratorDecl(ValueDecl):
 
 
 cdef class VarDecl(DeclaratorDecl):
-    pass
+    property initializer:
+        def __get__(self):
+            cdef clang.exprs.Expr *init = \
+                (<clang.decls.VarDecl*>self.ptr).getInit()
+            if init != NULL:
+                return create_Statement(init)
 
 
 cdef class ParmVarDecl(VarDecl):

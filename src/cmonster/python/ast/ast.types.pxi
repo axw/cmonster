@@ -110,7 +110,6 @@ cdef class BuiltinType(Type):
         def __get__(self):
             return BuiltinTypeKinds[
                 (<clang.types.BuiltinType*>self.ptr).getKind()]
-            return None
 
     def __repr__(self):
         return "BuiltinType(%r)" % self.kind

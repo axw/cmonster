@@ -1,5 +1,3 @@
-# vim: set filetype=pyrex:
-
 # Copyright (c) 2011 Andrew Wilkins <axwalk@gmail.com>
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,25 +17,4 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
-from cpython.pycapsule cimport PyCapsule_IsValid, PyCapsule_GetPointer
-from cython.operator cimport dereference as deref
-from cython.operator cimport preincrement as inc
-from libc.stdint cimport uint64_t
-
-cimport llvm
-cimport clang.astcontext
-cimport clang.exprs
-cimport clang.types
-cimport clang.decls
-cimport clang.source
-cimport clang.statements
-
-include "ast.astcontext.pxi"
-include "ast.source.pxi"
-include "ast.types.pxi"
-include "ast.decls.pxi"
-include "ast.declcontext.pxi"
-include "ast.statements.pxi"
-include "ast.exprs.pxi"
 

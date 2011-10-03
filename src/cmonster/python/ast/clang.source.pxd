@@ -28,3 +28,15 @@ cdef extern from "clang/Basic/SourceLocation.h" namespace "clang":
         bint isValid()
         bint isInvalid()
 
+    cdef cppclass PresumedLoc:
+        bint isValid()
+        bint isInvalid()
+        char* getFilename()
+        unsigned getLine()
+        unsigned getColumn()
+        SourceLocation getIncludeLoc()
+
+cdef extern from "clang/Basic/SourceManager.h" namespace "clang":
+    cdef cppclass SourceManager:
+        PresumedLoc getPresumedLoc(SourceLocation)
+
