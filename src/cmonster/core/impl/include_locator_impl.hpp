@@ -35,7 +35,7 @@ namespace cmonster {
 namespace core {
 namespace impl {
 
-class IncludeLocatorDiagnosticClient : public clang::DiagnosticClient
+class IncludeLocatorDiagnosticClient : public clang::DiagnosticConsumer
 {
 public:
     /**
@@ -45,7 +45,7 @@ public:
      * @param delegate A DiagnosticClient to delegate unhandled diagnostics to.
      */
     IncludeLocatorDiagnosticClient(clang::Preprocessor &pp,
-                                   clang::DiagnosticClient *delegate = 0);
+                                   clang::DiagnosticConsumer *delegate = 0);
 
     /**
      * @param locator The locator that will be used for external include
@@ -54,22 +54,27 @@ public:
     void setIncludeLocator(boost::shared_ptr<IncludeLocator> const& locator);
 
     /**
-     * Override for clang::DiagnosticClient::HandleDiagnostic.
+     * Override for clang::DiagnosticConsumer::HandleDiagnostic.
      *
      * This will trap #include failures and provide a second chance attempt.
      */
-    void HandleDiagnostic(clang::Diagnostic::Level level,
-                          const clang::DiagnosticInfo &info);
+    void HandleDiagnostic(clang::DiagnosticsEngine::Level level,
+                          const clang::Diagnostic &info);
 
-    clang::DiagnosticClient *takeDelegate();
-    void setDelegate(clang::DiagnosticClient *delegate);
+    /**
+     * Override for clang::DiagnosticConsumer::clone.
+     */
+    clang::DiagnosticConsumer* clone(clang::DiagnosticsEngine &diags) const;
+
+    clang::DiagnosticConsumer *takeDelegate();
+    void setDelegate(clang::DiagnosticConsumer *delegate);
 
 private:
-    boost::shared_ptr<IncludeLocator>       m_locator;
-    clang::Preprocessor                    &m_pp;
-    std::auto_ptr<clang::DiagnosticClient>  m_delegate;
-    clang::FileID                           m_include_fid;
-    clang::SourceLocation                   m_include_loc;
+    boost::shared_ptr<IncludeLocator>         m_locator;
+    clang::Preprocessor                      &m_pp;
+    std::auto_ptr<clang::DiagnosticConsumer>  m_delegate;
+    clang::FileID                             m_include_fid;
+    clang::SourceLocation                     m_include_loc;
 };
 
 }}}

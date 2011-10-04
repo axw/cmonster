@@ -271,7 +271,7 @@ PreprocessorImpl::PreprocessorImpl(clang::CompilerInstance &compiler)
     m_compiler.getPreprocessor().addPPCallbacks(m_file_change_callback);
 
     // Set the include locator diagnostic client.
-    clang::DiagnosticClient *orig_client =
+    clang::DiagnosticConsumer *orig_client =
         m_compiler.getDiagnostics().takeClient();
     m_include_locator = new IncludeLocatorDiagnosticClient(
         m_compiler.getPreprocessor(), orig_client);

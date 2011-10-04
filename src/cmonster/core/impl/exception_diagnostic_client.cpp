@@ -33,11 +33,17 @@ ExceptionDiagnosticClient::ExceptionDiagnosticClient(
 
 void
 ExceptionDiagnosticClient::HandleDiagnostic(
-    clang::Diagnostic::Level level, const clang::DiagnosticInfo &info)
+    clang::DiagnosticsEngine::Level level, const clang::Diagnostic &info)
 {
     llvm::SmallString<64> formatted;
     info.FormatDiagnostic(formatted);
     m_exception = boost::copy_exception(std::runtime_error(formatted.c_str()));
+}
+
+clang::DiagnosticConsumer*
+ExceptionDiagnosticClient::clone(clang::DiagnosticsEngine &diags) const
+{
+    return new ExceptionDiagnosticClient(m_exception);
 }
 
 }}}

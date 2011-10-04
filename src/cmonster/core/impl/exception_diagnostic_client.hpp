@@ -35,14 +35,16 @@ namespace impl {
  * Clang is compiled without exception support, so we have to make sure that
  * the exceptions thrown by cmonster 
  */
-class ExceptionDiagnosticClient : public clang::DiagnosticClient
+class ExceptionDiagnosticClient : public clang::DiagnosticConsumer
 {
 public:
     ExceptionDiagnosticClient(boost::exception_ptr &exception);
 
-    void HandleDiagnostic(clang::Diagnostic::Level level,
-                          const clang::DiagnosticInfo &info);
-    
+    void HandleDiagnostic(clang::DiagnosticsEngine::Level level,
+                          const clang::Diagnostic &info);
+
+    clang::DiagnosticConsumer* clone(clang::DiagnosticsEngine &diags) const;
+
 private:
     boost::exception_ptr &m_exception;
 };

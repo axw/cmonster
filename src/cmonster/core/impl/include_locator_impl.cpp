@@ -35,12 +35,13 @@ SOFTWARE.
 namespace {
 struct DiagnosticsResetter
 {
-    DiagnosticsResetter(clang::Preprocessor &pp, clang::Diagnostic &diag)
+    DiagnosticsResetter(clang::Preprocessor &pp,
+                        clang::DiagnosticsEngine &diag)
       : m_pp(pp), m_diag(diag) {}
     ~DiagnosticsResetter() {m_pp.setDiagnostics(m_diag);}
 private:
     clang::Preprocessor &m_pp;
-    clang::Diagnostic &m_diag;
+    clang::DiagnosticsEngine &m_diag;
 };
 }
 
@@ -49,7 +50,7 @@ namespace core {
 namespace impl {
 
 IncludeLocatorDiagnosticClient::IncludeLocatorDiagnosticClient(
-    clang::Preprocessor &pp, clang::DiagnosticClient *delegate)
+    clang::Preprocessor &pp, clang::DiagnosticConsumer *delegate)
   : m_locator(), m_pp(pp), m_delegate(delegate), m_include_fid(),
     m_include_loc() {}
 
@@ -62,7 +63,7 @@ IncludeLocatorDiagnosticClient::setIncludeLocator(
 
 void
 IncludeLocatorDiagnosticClient::HandleDiagnostic(
-    clang::Diagnostic::Level level, const clang::DiagnosticInfo &info)
+    clang::DiagnosticsEngine::Level level, const clang::Diagnostic &info)
 {
     if (m_locator && info.getID() == clang::diag::err_pp_file_not_found)
     {
@@ -111,8 +112,9 @@ IncludeLocatorDiagnosticClient::HandleDiagnostic(
                         // preprocessor in case the "EnterSourceFile" below
                         // causes another error. Diagnostics barf when another
                         // is reported while one is already "in flight".
-                        clang::Diagnostic &old_diag = m_pp.getDiagnostics();
-                        clang::Diagnostic temp_diag(
+                        clang::DiagnosticsEngine &old_diag =
+                            m_pp.getDiagnostics();
+                        clang::DiagnosticsEngine temp_diag(
                             m_pp.getDiagnostics().getDiagnosticIDs(),
                             this, false);
                         temp_diag.setSourceManager(
@@ -130,9 +132,9 @@ IncludeLocatorDiagnosticClient::HandleDiagnostic(
 
                 // Returned file does not exist. Raise a new diagnostic with
                 // the new filename.
-                clang::Diagnostic &old_diag = m_pp.getDiagnostics();
+                clang::DiagnosticsEngine &old_diag = m_pp.getDiagnostics();
                 old_diag.setLastDiagnosticIgnored();
-                clang::Diagnostic temp_diag(
+                clang::DiagnosticsEngine temp_diag(
                     m_pp.getDiagnostics().getDiagnosticIDs(), this, false);
                 temp_diag.setSourceManager(&old_diag.getSourceManager());
                 temp_diag.Report(info.getLocation(), info.getID()) << path;
@@ -142,15 +144,15 @@ IncludeLocatorDiagnosticClient::HandleDiagnostic(
         catch (...)
         {
             // Don't let exceptions escape to Clang. Raise a new diagnostic.
-            clang::Diagnostic &old_diag = m_pp.getDiagnostics();
+            clang::DiagnosticsEngine &old_diag = m_pp.getDiagnostics();
             old_diag.setLastDiagnosticIgnored();
-            clang::Diagnostic temp_diag(
+            clang::DiagnosticsEngine temp_diag(
                 m_pp.getDiagnostics().getDiagnosticIDs(), this, false);
             temp_diag.setSourceManager(&old_diag.getSourceManager());
 
             // Report the diagnostic.
             unsigned diagId = temp_diag.getCustomDiagID(
-                clang::Diagnostic::Error,
+                clang::DiagnosticsEngine::Error,
                 llvm::StringRef("Exception thrown in include locator: %0"));
             boost::exception_ptr const& e = boost::current_exception();
             if (e)
@@ -172,18 +174,30 @@ IncludeLocatorDiagnosticClient::HandleDiagnostic(
     if (m_delegate.get())
         m_delegate->HandleDiagnostic(level, info);
     else
-        clang::DiagnosticClient::HandleDiagnostic(level, info);
+        clang::DiagnosticConsumer::HandleDiagnostic(level, info);
 }
 
-clang::DiagnosticClient* IncludeLocatorDiagnosticClient::takeDelegate()
+clang::DiagnosticConsumer*
+IncludeLocatorDiagnosticClient::clone(clang::DiagnosticsEngine &diags) const
+{
+    std::auto_ptr<clang::DiagnosticConsumer> delegate;
+    if (m_delegate.get())
+        delegate.reset(m_delegate->clone(diags));
+    IncludeLocatorDiagnosticClient *cloned =
+        new IncludeLocatorDiagnosticClient(m_pp, delegate.get());
+    delegate.release();
+    return cloned;
+}
+
+clang::DiagnosticConsumer* IncludeLocatorDiagnosticClient::takeDelegate()
 {
     return m_delegate.release();
 }
 
 void
-IncludeLocatorDiagnosticClient::setDelegate(clang::DiagnosticClient *delegate)
+IncludeLocatorDiagnosticClient::setDelegate(clang::DiagnosticConsumer *del)
 {
-    m_delegate.reset(delegate);
+    m_delegate.reset(del);
 }
 
 }}}
