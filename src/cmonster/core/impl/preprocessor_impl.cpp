@@ -253,6 +253,11 @@ PreprocessorImpl::PreprocessorImpl(clang::CompilerInstance &compiler)
 {
     m_compiler.createPreprocessor();
 
+    // Initialise builtins.
+    m_compiler.getPreprocessor().getBuiltinInfo().InitializeBuiltins(
+        m_compiler.getPreprocessor().getIdentifierTable(),
+        m_compiler.getPreprocessor().getLangOptions());
+
     // Set the predefines on the preprocessor.
     std::string predefines = m_compiler.getPreprocessor().getPredefines();
     predefines.append(

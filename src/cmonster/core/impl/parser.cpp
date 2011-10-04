@@ -27,6 +27,7 @@ SOFTWARE.
 #include <boost/scoped_ptr.hpp>
 
 #include <clang/Basic/TargetInfo.h>
+#include <clang/Frontend/CompilerInvocation.h>
 #include <clang/Parse/Parser.h>
 #include <clang/Sema/Sema.h>
 #include <clang/Sema/SemaConsumer.h>
@@ -56,7 +57,8 @@ public:
 
         // Set the language options.
         // XXX make this configurable?
-        m_compiler.getLangOpts().CPlusPlus = 1;
+        clang::CompilerInvocation::setLangDefaults(
+            m_compiler.getLangOpts(), clang::IK_CXX);
 
         // Configure the include paths.
         clang::HeaderSearchOptions &hsopts = m_compiler.getHeaderSearchOpts();
