@@ -38,6 +38,8 @@ _cmonster_extension = Extension(
         "src/cmonster/python/parser.cpp",
         "src/cmonster/python/parse_result.cpp",
         "src/cmonster/python/preprocessor.cpp",
+        "src/cmonster/python/pyfile_ostream.cpp",
+        "src/cmonster/python/rewriter.cpp",
         "src/cmonster/python/token.cpp",
         "src/cmonster/python/token_iterator.cpp",
         "src/cmonster/python/token_predicate.cpp"
@@ -60,6 +62,7 @@ _cmonster_extension = Extension(
     #library_dirs = ["/home/andrew/prog/llvm/build/Debug+Asserts/lib"],
     library_dirs = ["/home/andrew/prog/llvm/build/Release/lib"],
     libraries = [
+        "clangRewrite",
         "clangFrontend",
         "clangDriver",
         "clangSerialization",

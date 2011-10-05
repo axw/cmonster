@@ -20,41 +20,39 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
-#define _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
-
 /* Define this to ensure only the limited API is used, so we can ensure forward
  * binary compatibility. */
 #define Py_LIMITED_API
-#include <Python.h>
+
+#include "pyfile_ostream.hpp"
 
 namespace cmonster {
 namespace python {
 
-struct ScopedPyObject
+pyfile_ostream::pyfile_ostream(PyObject *file)
+  : llvm::raw_ostream(), m_file(file)
 {
-    ScopedPyObject(PyObject *ref) throw() : m_ref(ref) {}
-    ~ScopedPyObject() throw() {Py_XDECREF(m_ref);}
-    operator PyObject* () const throw() {return m_ref;}
+    Py_XINCREF(m_file);
+}
 
-    PyObject* get() throw()
-    {
-        return m_ref;
-    }
+pyfile_ostream::~pyfile_ostream()
+{
+    ScopedPyObject result(PyObject_CallMethod(m_file, (char*)"flush", NULL));
+}
 
-    // Release the return object.
-    PyObject* release() throw()
-    {
-        PyObject *ref = m_ref;
-        m_ref = NULL;
-        return ref;
-    }
+void pyfile_ostream::write_impl(const char *ptr, size_t size)
+{
+    ScopedPyObject result(PyObject_CallMethod(
+        m_file, (char*)"write", (char*)"s#", ptr, (Py_ssize_t)size));
+}
 
-private:
-    PyObject *m_ref;
-};
+uint64_t pyfile_ostream::current_pos() const
+{
+    ScopedPyObject result(PyObject_CallMethod(m_file, (char*)"tell", NULL));
+    if (!result)
+        return 0;
+    return static_cast<uint64_t>(PyLong_AsLongLong(result));
+}
 
 }}
-
-#endif
 

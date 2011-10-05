@@ -20,39 +20,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
-#define _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
-
-/* Define this to ensure only the limited API is used, so we can ensure forward
- * binary compatibility. */
-#define Py_LIMITED_API
-#include <Python.h>
+#ifndef _CMONSTER_PYTHON_REWRITER_HPP
+#define _CMONSTER_PYTHON_REWRITER_HPP
 
 namespace cmonster {
 namespace python {
 
-struct ScopedPyObject
-{
-    ScopedPyObject(PyObject *ref) throw() : m_ref(ref) {}
-    ~ScopedPyObject() throw() {Py_XDECREF(m_ref);}
-    operator PyObject* () const throw() {return m_ref;}
+/**
+ * Initialise the Rewriter Python type object.
+ */
+PyTypeObject* init_rewriter_type();
 
-    PyObject* get() throw()
-    {
-        return m_ref;
-    }
-
-    // Release the return object.
-    PyObject* release() throw()
-    {
-        PyObject *ref = m_ref;
-        m_ref = NULL;
-        return ref;
-    }
-
-private:
-    PyObject *m_ref;
-};
+/**
+ * Get the Rewriter Python type object.
+ */
+PyTypeObject* get_rewriter_type();
 
 }}
 

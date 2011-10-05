@@ -25,6 +25,8 @@ cdef class SourceLocation:
     cdef clang.source.SourceManager *mgr
     def __dealloc__(self):
         if self.ptr: del self.ptr
+    def __int__(self):
+        return <int>self.ptr.getRawEncoding()
     property valid:
         def __get__(self): return self.ptr.isValid()
     property invalid:

@@ -19,6 +19,7 @@
 # SOFTWARE.
 
 from clang.exprs cimport Expr
+cimport clang.source
 
 
 cdef extern from "clang/AST/Stmt.h" namespace "clang::Stmt":
@@ -29,6 +30,7 @@ cdef extern from "clang/AST/Stmt.h" namespace "clang::Stmt":
         IntegerLiteralClass
         UnaryOperatorClass
         DeclRefExprClass
+        IfStmtClass
 
 
 cdef extern from "clang/AST/StmtIterator.h" namespace "clang":
@@ -40,6 +42,7 @@ cdef extern from "clang/AST/StmtIterator.h" namespace "clang":
 
 cdef extern from "clang/AST/Stmt.h" namespace "clang":
     cdef cppclass Stmt:
+        clang.source.SourceLocation getLocStart()
         StmtClass getStmtClass()
         char* getStmtClassName()
         StmtRange children()
@@ -51,4 +54,9 @@ cdef extern from "clang/AST/Stmt.h" namespace "clang":
 
     cdef cppclass ReturnStmt(Stmt):
         Expr* getRetValue()
+
+    cdef cppclass IfStmt(Stmt):
+        Expr* getCond()
+        Expr* getThen()
+        Expr* getElse()
 

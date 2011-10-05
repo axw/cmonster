@@ -27,6 +27,7 @@ cdef extern from "clang/Basic/SourceLocation.h" namespace "clang":
         bint isMacroID()
         bint isValid()
         bint isInvalid()
+        unsigned getRawEncoding()
 
     cdef cppclass PresumedLoc:
         bint isValid()

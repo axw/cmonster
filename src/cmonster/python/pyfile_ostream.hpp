@@ -20,38 +20,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
-#define _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
+#ifndef _CMONSTER_PYTHON_PYFILEOSTREAM_HPP
+#define _CMONSTER_PYTHON_PYFILEOSTREAM_HPP
 
-/* Define this to ensure only the limited API is used, so we can ensure forward
- * binary compatibility. */
-#define Py_LIMITED_API
-#include <Python.h>
+#include "scoped_pyobject.hpp"
+
+#include <llvm/Support/raw_ostream.h>
 
 namespace cmonster {
 namespace python {
 
-struct ScopedPyObject
+class pyfile_ostream : public llvm::raw_ostream
 {
-    ScopedPyObject(PyObject *ref) throw() : m_ref(ref) {}
-    ~ScopedPyObject() throw() {Py_XDECREF(m_ref);}
-    operator PyObject* () const throw() {return m_ref;}
-
-    PyObject* get() throw()
-    {
-        return m_ref;
-    }
-
-    // Release the return object.
-    PyObject* release() throw()
-    {
-        PyObject *ref = m_ref;
-        m_ref = NULL;
-        return ref;
-    }
+public:
+    pyfile_ostream(PyObject *file);
+    ~pyfile_ostream();
 
 private:
-    PyObject *m_ref;
+    virtual void write_impl(const char *ptr, size_t size);
+    virtual uint64_t current_pos() const;
+
+    ScopedPyObject m_file;
 };
 
 }}

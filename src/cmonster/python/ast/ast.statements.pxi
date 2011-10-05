@@ -28,6 +28,13 @@ cdef class Statement:
     property class_name:
         def __get__(self):
             return (<bytes>self.ptr.getStmtClassName()).decode()
+    property location:
+        def __get__(self):
+            # TODO get the ASTContext?
+            #cdef clang.astcontext.ASTContext *ctx = &self.ptr.getASTContext()
+            #cdef clang.source.SourceManager *srcmgr = &ctx.getSourceManager()
+            #return create_SourceLocation(self.ptr.getLocStart(), srcmgr)
+            return create_SourceLocation(self.ptr.getLocStart(), NULL)
     property children:
         def __get__(self):
             #cdef StatementRange range_ = StatementRange()
@@ -99,22 +106,40 @@ cdef class ReturnStatement(Statement):
         def __get__(self):
             cdef clang.statements.ReturnStmt *rs = \
                 <clang.statements.ReturnStmt*>self.ptr
-            cdef clang.exprs.Expr *expr = rs.getRetValue()
-            if expr != NULL:
-                return create_Statement(expr)
+            return create_Statement(rs.getRetValue())
+
+
+cdef class IfStatement(Statement):
+    property condition:
+        def __get__(self):
+            return create_Statement(
+                (<clang.statements.IfStmt*>self.ptr).getCond())
+
+    property then:
+        def __get__(self):
+            return create_Statement(
+                (<clang.statements.IfStmt*>self.ptr).getThen())
+
+    property else_:
+        def __get__(self):
+            return create_Statement(
+                (<clang.statements.IfStmt*>self.ptr).getElse())
 
 
 ###############################################################################
 
 
 cdef Statement create_Statement(clang.statements.Stmt *ptr):
+    if ptr == NULL:
+        return None
     cdef Statement stmt = {
         clang.statements.CompoundStmtClass: CompoundStatement,
         clang.statements.ReturnStmtClass: ReturnStatement,
         clang.statements.ImplicitCastExprClass: ImplicitCastExpr,
         clang.statements.UnaryOperatorClass: UnaryOperator,
         clang.statements.IntegerLiteralClass: IntegerLiteral,
-        clang.statements.DeclRefExprClass: DeclRefExpr
+        clang.statements.DeclRefExprClass: DeclRefExpr,
+        clang.statements.IfStmtClass: IfStatement
     }.get(ptr.getStmtClass(), Statement)()
     stmt.ptr = ptr
     return stmt

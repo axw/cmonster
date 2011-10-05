@@ -31,6 +31,7 @@ SOFTWARE.
 #include "parser.hpp"
 #include "parse_result.hpp"
 #include "preprocessor.hpp"
+#include "rewriter.hpp"
 #include "token_iterator.hpp"
 #include "token.hpp"
 
@@ -51,7 +52,9 @@ PyInit__cmonster(void)
     PyObject *ParserType = (PyObject*)cmonster::python::init_parser_type();
     if (!ParserType)
         return NULL;
-    if (!cmonster::python::init_parse_result_type())
+    PyObject *ParseResultType =
+        (PyObject*)cmonster::python::init_parse_result_type();
+    if (!ParseResultType)
         return NULL;
     if (!cmonster::python::init_preprocessor_type())
         return NULL;
@@ -59,6 +62,9 @@ PyInit__cmonster(void)
         return NULL;
     PyObject *TokenType = (PyObject*)cmonster::python::init_token_type();
     if (!TokenType)
+        return NULL;
+    PyObject *RewriterType = (PyObject*)cmonster::python::init_rewriter_type();
+    if (!RewriterType)
         return NULL;
 
     // Initialise module.
@@ -68,9 +74,13 @@ PyInit__cmonster(void)
 
     // Add types.
     Py_INCREF(ParserType);
+    Py_INCREF(ParseResultType);
     Py_INCREF(TokenType);
+    Py_INCREF(RewriterType);
     PyModule_AddObject(module, "Parser", ParserType);
+    PyModule_AddObject(module, "ParseResult", ParseResultType);
     PyModule_AddObject(module, "Token", TokenType);
+    PyModule_AddObject(module, "Rewriter", RewriterType);
 
     // Add constants (token kinds).
     for (long i = 0; i < clang::tok::NUM_TOKENS; ++i)
