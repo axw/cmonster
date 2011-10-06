@@ -119,8 +119,13 @@ static bool get_source_location(PyObject *arg, clang::SourceLocation &result)
 static PyObject*
 insert_text(Rewriter *self, PyObject *loc,
             const char *text, int text_size,
-            PyObject *indent, bool insert_after)
+            PyObject *after, PyObject *indent)
 {
+    // Check if insertion should be before or after previous insertions.
+    int after_ = PyObject_IsTrue(after);
+    if (after_ == -1)
+        return NULL;
+
     // Check if indentation is required for new lines.
     int indent_ = PyObject_IsTrue(indent);
     if (indent_ == -1)
@@ -147,38 +152,24 @@ insert_text(Rewriter *self, PyObject *loc,
     }
 
     llvm::StringRef insertion(text, text_size);
-    self->rewriter->InsertText(sloc, insertion, insert_after, indent_==1);
+    self->rewriter->InsertText(sloc, insertion, after_==1, indent_==1);
     Py_RETURN_NONE;
 }
 
-static PyObject*
-Rewriter_insert_after(Rewriter *self, PyObject *args, PyObject *kw)
+static PyObject* Rewriter_insert(Rewriter *self, PyObject *args, PyObject *kw)
 {
     PyObject *loc;
     const char *text;
     int text_size;
     PyObject *indent = Py_True;
-    static const char *keywords[] = {"location", "text", "indent", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kw, "Os#|O:insert_before",
+    PyObject *after = Py_True;
+    static const char *keywords[] =
+        {"location", "text", "indent", "after", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "Os#|OO:insert_before",
                                      (char**)keywords, &loc, &text,
-                                     &text_size, &indent))
+                                     &text_size, &after, &indent))
         return NULL;
-    return insert_text(self, loc, text, text_size, indent, true);
-}
-
-static PyObject*
-Rewriter_insert_before(Rewriter *self, PyObject *args, PyObject *kw)
-{
-    PyObject *loc;
-    const char *text;
-    int text_size;
-    PyObject *indent = Py_True;
-    static const char *keywords[] = {"location", "text", "indent", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kw, "Os#|O:insert_before",
-                                     (char**)keywords, &loc, &text,
-                                     &text_size, &indent))
-        return NULL;
-    return insert_text(self, loc, text, text_size, indent, false);
+    return insert_text(self, loc, text, text_size, after, indent);
 }
 
 // XXX should we support rewriting non-main files?
@@ -203,10 +194,8 @@ static PyObject* Rewriter_dump(Rewriter *self, PyObject *args)
 
 static PyMethodDef Rewriter_methods[] =
 {
-    {(char*)"insert_after",
-     (PyCFunction)&Rewriter_insert_after, METH_VARARGS | METH_KEYWORDS},
-    {(char*)"insert_before",
-     (PyCFunction)&Rewriter_insert_before, METH_VARARGS | METH_KEYWORDS},
+    {(char*)"insert",
+     (PyCFunction)&Rewriter_insert, METH_VARARGS | METH_KEYWORDS},
     {(char*)"dump",
      (PyCFunction)&Rewriter_dump, METH_VARARGS},
     {NULL}

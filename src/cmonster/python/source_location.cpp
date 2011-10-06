@@ -20,9 +20,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+// XXX Py_LIMITED_API is disabled for now, see "init_source_location_type".
 /* Define this to ensure only the limited API is used, so we can ensure forward
  * binary compatibility. */
-#define Py_LIMITED_API
+//#define Py_LIMITED_API
 
 #include <Python.h>
 #include <sstream>
@@ -146,6 +147,46 @@ SourceLocation_get_column(SourceLocation *self, void *closure)
     return PyLong_FromLong(column);
 }
 
+PyObject* SourceLocation_add(PyObject *lhs, PyObject *rhs)
+{
+    if (!PyObject_TypeCheck(lhs, SourceLocationType))
+    {
+        PyErr_SetString(PyExc_TypeError,
+            "Expected SourceLocation as first argument");
+        return NULL;
+    }
+    else
+    {
+        SourceLocation *self = (SourceLocation*)lhs;
+        long offset = PyLong_AsLong(rhs);
+        if (offset == -1 && PyErr_Occurred())
+            return NULL;
+        return (PyObject*)create_source_location(
+            self->source_location.getLocWithOffset(offset),
+            *self->source_manager);
+    }
+}
+
+PyObject* SourceLocation_subtract(PyObject *lhs, PyObject *rhs)
+{
+    if (!PyObject_TypeCheck(lhs, SourceLocationType))
+    {
+        PyErr_SetString(PyExc_TypeError,
+            "Expected SourceLocation as first argument");
+        return NULL;
+    }
+    else
+    {
+        SourceLocation *self = (SourceLocation*)lhs;
+        long offset = PyLong_AsLong(rhs);
+        if (offset == -1 && PyErr_Occurred())
+            return NULL;
+        return (PyObject*)create_source_location(
+            self->source_location.getLocWithOffset(-offset),
+            *self->source_manager);
+    }
+}
+
 // XXX we should create subclasses for file/macro locations, and put the
 // relevant properties in each.
 static PyGetSetDef SourceLocation_getset[] =
@@ -169,6 +210,10 @@ static PyType_Slot SourceLocationTypeSlots[] =
     {Py_tp_doc,     (void*)SourceLocation_doc},
     {Py_tp_alloc,   (void*)PyType_GenericAlloc},
     {Py_tp_new,     (void*)PyType_GenericNew},
+
+    {Py_nb_add, (void*)SourceLocation_add},
+    {Py_nb_subtract, (void*)SourceLocation_subtract},
+
     {0, NULL}
 };
 
@@ -187,6 +232,11 @@ PyTypeObject* init_source_location_type()
         (PyTypeObject*)PyType_FromSpec(&SourceLocationTypeSpec);
     if (!SourceLocationType)
         return NULL;
+
+    // FIXME (CPython Issue 13115) -- see "token.cpp" for more info.
+    SourceLocationType->tp_as_number =
+        &((PyHeapTypeObject*)SourceLocationType)->as_number;
+
     if (PyType_Ready((PyTypeObject*)SourceLocationType) < 0)
         return NULL;
     return SourceLocationType;

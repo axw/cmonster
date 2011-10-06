@@ -31,6 +31,7 @@ SOFTWARE.
 
 #include "preprocessor.hpp"
 #include "scoped_pyobject.hpp"
+#include "source_location.hpp"
 #include "token.hpp"
 #include <iostream>
 #include <sstream>
@@ -186,6 +187,14 @@ Token_set_token_id(Token *self, PyObject *value, void *closure)
     return Py_None;
 }
 
+static PyObject* Token_get_location(Token *self, void *closure)
+{
+    clang::Preprocessor const& pp =
+        get_preprocessor(self->preprocessor).getClangPreprocessor();
+    return (PyObject*)create_source_location(
+        self->token->getClangToken().getLocation(), pp.getSourceManager());
+}
+
 static Py_ssize_t Token_length(Token *self)
 {
     clang::Token const& token = self->token->getClangToken();
@@ -194,6 +203,8 @@ static Py_ssize_t Token_length(Token *self)
 
 static PyGetSetDef Token_getset[] = {
     {(char*)"token_id", (getter)Token_get_token_id, (setter)Token_set_token_id,
+     NULL /* docs */, NULL /* closure */},
+    {(char*)"location", (getter)Token_get_location, NULL,
      NULL /* docs */, NULL /* closure */},
     {NULL}
 };
