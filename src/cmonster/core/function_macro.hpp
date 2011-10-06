@@ -25,6 +25,8 @@ SOFTWARE.
 
 #include "token.hpp"
 
+#include <clang/Basic/SourceLocation.h>
+
 #include <vector>
 
 namespace cmonster {
@@ -43,7 +45,8 @@ public:
      * (tokens), and returning a (possibly empty) list of tokens.
      */
     virtual std::vector<Token>
-    operator()(std::vector<Token> const& args) const = 0;
+    operator()(clang::SourceLocation const& location,
+               std::vector<Token> const& args) const = 0;
 };
 
 }}

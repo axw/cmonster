@@ -29,6 +29,7 @@ SOFTWARE.
 
 #include <boost/shared_ptr.hpp>
 #include <clang/Basic/TokenKinds.h>
+#include <clang/Lex/Preprocessor.h>
 
 namespace cmonster {
 namespace core {
@@ -148,6 +149,11 @@ public:
      */
     virtual void
     set_include_locator(boost::shared_ptr<IncludeLocator> const& locator) = 0;
+
+    /**
+     * Get the underlying Clang preprocessor.
+     */
+    virtual const clang::Preprocessor& getClangPreprocessor() const = 0;
 };
 
 }}

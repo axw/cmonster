@@ -33,6 +33,7 @@ SOFTWARE.
 #include "parse_result.hpp"
 #include "rewriter.hpp"
 #include "scoped_pyobject.hpp"
+#include "source_location.hpp"
 #include "pyfile_ostream.hpp"
 
 #include <clang/Rewrite/Rewriter.h>
@@ -79,6 +80,92 @@ Rewriter_init(Rewriter *self, PyObject *args, PyObject *kwds)
     return 0;
 }
 
+static bool get_source_location(PyObject *arg, clang::SourceLocation &result)
+{
+    if (PyObject_TypeCheck(arg, get_source_location_type()))
+    {
+        result = get_source_location((SourceLocation*)arg);
+        return true;
+    }
+    else
+    {
+        long encoding = PyLong_AsLong(arg);
+        if (encoding == -1 && PyErr_Occurred())
+        {
+            PyErr_Clear();
+            if (PyObject_HasAttrString(arg, "location"))
+            {
+                ScopedPyObject location(
+                    PyObject_GetAttrString(arg, "location"));
+                if (!location)
+                    return false;
+                if (get_source_location(location, result))
+                    return true;
+            }
+        }
+        else
+        {
+            result = clang::SourceLocation::getFromRawEncoding(
+                static_cast<unsigned>(encoding));
+        }
+    }
+
+    PyErr_SetString(PyExc_TypeError,
+        "Expected cmonster.SourceLocation, encoded source location, "
+        "or object with valid 'location' attribute");
+    return false;
+}
+
+static PyObject*
+insert_text(Rewriter *self, PyObject *loc,
+            const char *text, int text_size,
+            PyObject *indent, bool insert_after)
+{
+    // Check if indentation is required for new lines.
+    int indent_ = PyObject_IsTrue(indent);
+    if (indent_ == -1)
+        return NULL;
+
+    clang::SourceLocation sloc;
+    if (!get_source_location(loc, sloc))
+        return NULL;
+
+    if (sloc.isInvalid())
+    {
+        PyErr_SetString(PyExc_ValueError, "Invalid source location");
+        return NULL;
+    }
+
+    // Ensure source location is in main file.
+    cmonster::core::ParseResult &result_ = get_parse_result(self->result);
+    clang::ASTContext &astctx = result_.getClangASTContext();
+    if (!astctx.getSourceManager().isFromMainFile(sloc))
+    {
+        PyErr_SetString(PyExc_ValueError,
+            "Source location is outside main file");
+        return NULL;
+    }
+
+    llvm::StringRef insertion(text, text_size);
+    self->rewriter->InsertText(sloc, insertion, insert_after, indent_==1);
+    Py_RETURN_NONE;
+}
+
+static PyObject*
+Rewriter_insert_after(Rewriter *self, PyObject *args, PyObject *kw)
+{
+    PyObject *loc;
+    const char *text;
+    int text_size;
+    PyObject *indent = Py_True;
+    static const char *keywords[] = {"location", "text", "indent", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "Os#|O:insert_before",
+                                     (char**)keywords, &loc, &text,
+                                     &text_size, &indent))
+        return NULL;
+    return insert_text(self, loc, text, text_size, indent, true);
+}
+
 static PyObject*
 Rewriter_insert_before(Rewriter *self, PyObject *args, PyObject *kw)
 {
@@ -87,52 +174,11 @@ Rewriter_insert_before(Rewriter *self, PyObject *args, PyObject *kw)
     int text_size;
     PyObject *indent = Py_True;
     static const char *keywords[] = {"location", "text", "indent", NULL};
-
     if (!PyArg_ParseTupleAndKeywords(args, kw, "Os#|O:insert_before",
                                      (char**)keywords, &loc, &text,
                                      &text_size, &indent))
         return NULL;
-
-    // Check if indentation is required for new lines.
-    int indent_ = PyObject_IsTrue(indent);
-    if (indent_ == -1)
-        return NULL;
-
-    // TODO move to utility function
-    long encoding = PyLong_AsLong(loc);
-    if (encoding == -1 && PyErr_Occurred())
-    {
-        PyErr_Clear();
-        if (PyObject_HasAttrString(loc, "location"))
-        {
-            ScopedPyObject location(PyObject_GetAttrString(loc, "location"));
-            if (!location)
-                return NULL;
-            encoding = PyLong_AsLong(location);
-            if (encoding == -1 && PyErr_Occurred())
-                return NULL;
-        }
-        else
-        {
-            PyErr_SetString(PyExc_TypeError,
-                "Expected encoded source location, or object with location "
-                "attribute");
-            return NULL;
-        }
-    }
-    clang::SourceLocation sloc = clang::SourceLocation::getFromRawEncoding(
-        static_cast<unsigned>(encoding));
-    if (sloc.isInvalid())
-    {
-        PyErr_SetString(PyExc_ValueError, "Invalid source location");
-        return NULL;
-    }
-
-    // TODO assert source location is in main file?
-
-    llvm::StringRef insertion(text, text_size);
-    self->rewriter->InsertText(sloc, insertion, false, indent_==1);
-    Py_RETURN_NONE;
+    return insert_text(self, loc, text, text_size, indent, false);
 }
 
 // XXX should we support rewriting non-main files?
@@ -157,6 +203,8 @@ static PyObject* Rewriter_dump(Rewriter *self, PyObject *args)
 
 static PyMethodDef Rewriter_methods[] =
 {
+    {(char*)"insert_after",
+     (PyCFunction)&Rewriter_insert_after, METH_VARARGS | METH_KEYWORDS},
     {(char*)"insert_before",
      (PyCFunction)&Rewriter_insert_before, METH_VARARGS | METH_KEYWORDS},
     {(char*)"dump",

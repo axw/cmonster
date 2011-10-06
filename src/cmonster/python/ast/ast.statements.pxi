@@ -23,6 +23,10 @@
 
 cdef class Statement:
     cdef clang.statements.Stmt *ptr
+    cdef clang.astcontext.ASTContext *astctx
+    def __dealloc__(self):
+        if self.astctx != NULL:
+            self.astctx.Release()
     def __repr__(self):
         return "Statement(%s)" % self.class_name
     property class_name:
@@ -30,11 +34,9 @@ cdef class Statement:
             return (<bytes>self.ptr.getStmtClassName()).decode()
     property location:
         def __get__(self):
-            # TODO get the ASTContext?
-            #cdef clang.astcontext.ASTContext *ctx = &self.ptr.getASTContext()
-            #cdef clang.source.SourceManager *srcmgr = &ctx.getSourceManager()
-            #return create_SourceLocation(self.ptr.getLocStart(), srcmgr)
-            return create_SourceLocation(self.ptr.getLocStart(), NULL)
+            cdef clang.source.SourceManager *srcmgr = \
+                &self.astctx.getSourceManager()
+            return create_SourceLocation(self.ptr.getLocStart(), srcmgr)
     property children:
         def __get__(self):
             #cdef StatementRange range_ = StatementRange()
@@ -43,7 +45,7 @@ cdef class Statement:
                 new clang.statements.StmtRange(self.ptr.children())
             try:
                 while <bint>deref(range_):
-                    yield create_Statement(deref(deref(range_)))
+                    yield create_Statement(deref(deref(range_)), self.astctx)
                     inc(deref(range_))
             finally:
                 del range_
@@ -58,33 +60,43 @@ cdef class StatementRange:
 
 
 cdef class StatementIterator:
+    cdef clang.astcontext.ASTContext *astctx
     cdef clang.statements.Stmt **begin
     cdef clang.statements.Stmt **end
+    def __dealloc__(self):
+        if self.astctx != NULL:
+            self.astctx.Release()
     def __next__(self):
         cdef clang.statements.Stmt *result
         if self.begin != self.end:
             result = deref(self.begin)
             inc(self.begin)
-            return create_Statement(result)
+            return create_Statement(result, self.astctx)
         raise StopIteration()
 
 
 cdef class StatementList:
+    cdef clang.astcontext.ASTContext *astctx
     cdef clang.statements.Stmt **begin
     cdef clang.statements.Stmt **end
+    def __dealloc__(self):
+        if self.astctx != NULL:
+            self.astctx.Release()
     def __len__(self):
         return <long>(self.end-self.begin)
     def __iter__(self):
         cdef StatementIterator iter_ = StatementIterator()
+        iter_.astctx = self.astctx
         iter_.begin = self.begin
         iter_.end = self.end
+        self.astctx.Retain()
         return iter_
     def __repr__(self):
         return repr([s for s in self])
     def __getitem__(self, i):
         if i < 0 or i >= len(self):
             raise IndexError("Index out of range")
-        return create_Statement(self.begin[i])
+        return create_Statement(self.begin[i], self.astctx)
 
 
 ###############################################################################
@@ -96,9 +108,31 @@ cdef class CompoundStatement(Statement):
             cdef clang.statements.CompoundStmt *this = \
                 <clang.statements.CompoundStmt*>self.ptr
             cdef StatementList list_ = StatementList()
+            list_.astctx = self.astctx
             list_.begin = this.body_begin()
             list_.end = this.body_end()
+            self.astctx.Retain()
             return list_
+    property left_bracket_location:
+        def __get__(self):
+            cdef clang.source.SourceManager *srcmgr = \
+                &self.astctx.getSourceManager()
+            cdef clang.statements.CompoundStmt *this = \
+                <clang.statements.CompoundStmt*>self.ptr
+            return create_SourceLocation(this.getLBracLoc(), srcmgr)
+    property right_bracket_location:
+        def __get__(self):
+            cdef clang.source.SourceManager *srcmgr = \
+                &self.astctx.getSourceManager()
+            cdef clang.statements.CompoundStmt *this = \
+                <clang.statements.CompoundStmt*>self.ptr
+            return create_SourceLocation(this.getRBracLoc(), srcmgr)
+    def __len__(self):
+        return (<clang.statements.CompoundStmt*>self.ptr).size()
+    def __iter__(self):
+        return iter(self.body)
+    def __getitem__(self, i):
+        return self.body[i]
 
 
 cdef class ReturnStatement(Statement):
@@ -106,30 +140,31 @@ cdef class ReturnStatement(Statement):
         def __get__(self):
             cdef clang.statements.ReturnStmt *rs = \
                 <clang.statements.ReturnStmt*>self.ptr
-            return create_Statement(rs.getRetValue())
+            return create_Statement(rs.getRetValue(), self.astctx)
 
 
 cdef class IfStatement(Statement):
     property condition:
         def __get__(self):
             return create_Statement(
-                (<clang.statements.IfStmt*>self.ptr).getCond())
+                (<clang.statements.IfStmt*>self.ptr).getCond(), self.astctx)
 
     property then:
         def __get__(self):
             return create_Statement(
-                (<clang.statements.IfStmt*>self.ptr).getThen())
+                (<clang.statements.IfStmt*>self.ptr).getThen(), self.astctx)
 
     property else_:
         def __get__(self):
             return create_Statement(
-                (<clang.statements.IfStmt*>self.ptr).getElse())
+                (<clang.statements.IfStmt*>self.ptr).getElse(), self.astctx)
 
 
 ###############################################################################
 
 
-cdef Statement create_Statement(clang.statements.Stmt *ptr):
+cdef Statement create_Statement(clang.statements.Stmt *ptr,
+                                clang.astcontext.ASTContext *astctx):
     if ptr == NULL:
         return None
     cdef Statement stmt = {
@@ -142,5 +177,7 @@ cdef Statement create_Statement(clang.statements.Stmt *ptr):
         clang.statements.IfStmtClass: IfStatement
     }.get(ptr.getStmtClass(), Statement)()
     stmt.ptr = ptr
+    stmt.astctx = astctx
+    astctx.Retain()
     return stmt
 

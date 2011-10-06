@@ -23,4 +23,6 @@ cimport clang.source
 cdef extern from "clang/AST/ASTContext.h" namespace "clang":
     cdef cppclass ASTContext:
         clang.source.SourceManager& getSourceManager()
+        void Release()
+        void Retain()
 

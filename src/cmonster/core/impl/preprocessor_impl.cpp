@@ -148,8 +148,12 @@ struct DynamicPragmaHandler : public clang::PragmaHandler
         // Add the result tokens back into the preprocessor.
         try
         {
+            clang::SourceLocation expansion_loc =
+                PP.getSourceManager().getExpansionLoc(
+                    FirstToken.getLocation());
+
             std::vector<cmonster::core::Token> result =
-                (*m_function)(m_token_saver.tokens);
+                (*m_function)(expansion_loc, m_token_saver.tokens);
             if (!result.empty())
             {
                 // Enter the results back into the preprocessor.
@@ -769,6 +773,11 @@ void PreprocessorImpl::check_exception()
         std::swap(exception, m_exception);
         boost::rethrow_exception(exception);
     }
+}
+
+const clang::Preprocessor& PreprocessorImpl::getClangPreprocessor() const
+{
+    return m_compiler.getPreprocessor();
 }
 
 }}}

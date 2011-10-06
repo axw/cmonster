@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 from clang.exprs cimport Expr
-cimport clang.source
+from clang.source cimport SourceLocation
 
 
 cdef extern from "clang/AST/Stmt.h" namespace "clang::Stmt":
@@ -42,7 +42,7 @@ cdef extern from "clang/AST/StmtIterator.h" namespace "clang":
 
 cdef extern from "clang/AST/Stmt.h" namespace "clang":
     cdef cppclass Stmt:
-        clang.source.SourceLocation getLocStart()
+        SourceLocation getLocStart()
         StmtClass getStmtClass()
         char* getStmtClassName()
         StmtRange children()
@@ -51,6 +51,8 @@ cdef extern from "clang/AST/Stmt.h" namespace "clang":
         unsigned size()
         Stmt** body_begin()
         Stmt** body_end()
+        SourceLocation getLBracLoc()
+        SourceLocation getRBracLoc()
 
     cdef cppclass ReturnStmt(Stmt):
         Expr* getRetValue()

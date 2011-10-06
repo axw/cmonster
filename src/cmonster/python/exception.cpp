@@ -19,6 +19,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
+/* Define this to ensure only the limited API is used, so we can ensure forward
+ * binary compatibility. */
+#define Py_LIMITED_API
+
 #include "exception.hpp"
 
 #include <boost/exception_ptr.hpp>

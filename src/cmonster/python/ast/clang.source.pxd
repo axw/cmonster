@@ -22,22 +22,9 @@
 
 cdef extern from "clang/Basic/SourceLocation.h" namespace "clang":
     cdef cppclass SourceLocation:
-        SourceLocation(SourceLocation&)
-        bint isFileID()
-        bint isMacroID()
-        bint isValid()
-        bint isInvalid()
         unsigned getRawEncoding()
-
-    cdef cppclass PresumedLoc:
-        bint isValid()
-        bint isInvalid()
-        char* getFilename()
-        unsigned getLine()
-        unsigned getColumn()
-        SourceLocation getIncludeLoc()
 
 cdef extern from "clang/Basic/SourceManager.h" namespace "clang":
     cdef cppclass SourceManager:
-        PresumedLoc getPresumedLoc(SourceLocation)
+        pass
 

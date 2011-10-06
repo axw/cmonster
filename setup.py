@@ -40,6 +40,7 @@ _cmonster_extension = Extension(
         "src/cmonster/python/preprocessor.cpp",
         "src/cmonster/python/pyfile_ostream.cpp",
         "src/cmonster/python/rewriter.cpp",
+        "src/cmonster/python/source_location.cpp",
         "src/cmonster/python/token.cpp",
         "src/cmonster/python/token_iterator.cpp",
         "src/cmonster/python/token_predicate.cpp"

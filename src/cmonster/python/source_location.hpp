@@ -20,32 +20,38 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _CMONSTER_PYTHON_FUNCTIONMACRO_HPP
-#define _CMONSTER_PYTHON_FUNCTIONMACRO_HPP
+#ifndef _CMONSTER_PYTHON_SOURCELOCATION_HPP
+#define _CMONSTER_PYTHON_SOURCELOCATION_HPP
 
-#include "../core/function_macro.hpp"
+#include <clang/Basic/SourceManager.h>
+#include <clang/Basic/SourceLocation.h>
 
 namespace cmonster {
 namespace python {
 
-class Preprocessor;
+struct SourceLocation;
 
 /**
+ * Create a new SourceLocation.
  */
-class FunctionMacro : public cmonster::core::FunctionMacro
-{
-public:
-    FunctionMacro(Preprocessor *pp, PyObject *callable);
-    ~FunctionMacro();
+SourceLocation*
+create_source_location(
+    clang::SourceLocation const& loc, clang::SourceManager &sm);
 
-    std::vector<cmonster::core::Token>
-    operator()(clang::SourceLocation const& expansion_location,
-               std::vector<cmonster::core::Token> const& args) const;
+/**
+ * Initialise the SourceLocation Python type object.
+ */
+PyTypeObject* init_source_location_type();
 
-private:
-    Preprocessor *m_preprocessor;
-    PyObject     *m_callable;
-};
+/**
+ * Get the SourceLocation Python type object.
+ */
+PyTypeObject* get_source_location_type();
+
+/**
+ * Get the clang::SourceLocation contained in the Python wrapper.
+ */
+const clang::SourceLocation& get_source_location(SourceLocation*);
 
 }}
 

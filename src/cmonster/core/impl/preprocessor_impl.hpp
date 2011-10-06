@@ -107,6 +107,11 @@ public:
      */
     void check_exception();
 
+    /**
+     * @see Preprocessor::getClangPreprocessor.
+     */
+    const clang::Preprocessor& getClangPreprocessor() const;
+
 private: // Methods
     bool add_pragma(std::string const& name,
                     boost::shared_ptr<FunctionMacro> const& handler,

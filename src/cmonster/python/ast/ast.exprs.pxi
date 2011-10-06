@@ -33,7 +33,7 @@ cdef class CastExpr(Expr):
             cdef clang.exprs.CastExpr *this = <clang.exprs.CastExpr*>self.ptr
             cdef clang.exprs.Expr *expr = this.getSubExpr()
             if expr != NULL:
-                return create_Statement(expr)
+                return create_Statement(expr, self.astctx)
 
 
 cdef class ImplicitCastExpr(CastExpr):
@@ -108,7 +108,7 @@ cdef class UnaryOperator(Expr):
                 <clang.exprs.UnaryOperator*>self.ptr
             cdef clang.exprs.Expr *expr = this.getSubExpr()
             if expr != NULL:
-                return create_Statement(expr)
+                return create_Statement(expr, self.astctx)
 
 ###############################################################################
 

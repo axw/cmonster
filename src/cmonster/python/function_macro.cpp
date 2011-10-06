@@ -30,6 +30,7 @@ SOFTWARE.
 #include "function_macro.hpp"
 #include "preprocessor.hpp"
 #include "scoped_pyobject.hpp"
+#include "source_location.hpp"
 #include "token.hpp"
 
 #include <stdexcept>
@@ -65,6 +66,7 @@ FunctionMacro::~FunctionMacro()
 
 std::vector<cmonster::core::Token>
 FunctionMacro::operator()(
+    clang::SourceLocation const& expansion_location,
     std::vector<cmonster::core::Token> const& arguments) const
 {
     // Create the arguments tuple.
@@ -77,7 +79,7 @@ FunctionMacro::operator()(
         PyTuple_SetItem(args_tuple, i, reinterpret_cast<PyObject*>(token));
     }
 
-    // Set the "preprocessor" global variable.
+    // Set the "preprocessor" and "location" global variables.
     //
     // XXX How do we create a closure via the C API? It would be better if we
     // could bind a function to the preprocessor it was created with, when we
@@ -90,6 +92,16 @@ FunctionMacro::operator()(
             throw python_exception();
         Py_INCREF((PyObject*)m_preprocessor);
         PyDict_SetItem(globals, key, (PyObject*)m_preprocessor);
+
+        cmonster::core::Preprocessor &pp = get_preprocessor(m_preprocessor);
+        SourceLocation *location = create_source_location(
+            expansion_location, pp.getClangPreprocessor().getSourceManager());
+        if (!location)
+            throw python_exception();
+        key = PyUnicode_FromString("location");
+        if (!key)
+            throw python_exception();
+        PyDict_SetItem(globals, key, (PyObject*)location);
     }
 
     // Call the function.

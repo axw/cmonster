@@ -56,9 +56,7 @@ cdef class Decl:
             cdef clang.statements.Stmt *ptr = self.ptr.getBody()
             if ptr == NULL:
                 return None
-            stmt = create_Statement(ptr)
-            assert type(stmt) is CompoundStatement
-            return stmt.body
+            return create_Statement(ptr, &self.ptr.getASTContext())
 
     property decl_context:
         def __get__(self): return self.__getDeclContext()
@@ -100,7 +98,7 @@ cdef class VarDecl(DeclaratorDecl):
             cdef clang.exprs.Expr *init = \
                 (<clang.decls.VarDecl*>self.ptr).getInit()
             if init != NULL:
-                return create_Statement(init)
+                return create_Statement(init, &self.ptr.getASTContext())
 
 
 cdef class ParmVarDecl(VarDecl):

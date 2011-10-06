@@ -32,6 +32,7 @@ SOFTWARE.
 #include "parse_result.hpp"
 #include "preprocessor.hpp"
 #include "rewriter.hpp"
+#include "source_location.hpp"
 #include "token_iterator.hpp"
 #include "token.hpp"
 
@@ -52,19 +53,28 @@ PyInit__cmonster(void)
     PyObject *ParserType = (PyObject*)cmonster::python::init_parser_type();
     if (!ParserType)
         return NULL;
+
     PyObject *ParseResultType =
         (PyObject*)cmonster::python::init_parse_result_type();
     if (!ParseResultType)
         return NULL;
-    if (!cmonster::python::init_preprocessor_type())
-        return NULL;
-    if (!cmonster::python::init_token_iterator_type())
-        return NULL;
+
     PyObject *TokenType = (PyObject*)cmonster::python::init_token_type();
     if (!TokenType)
         return NULL;
+
     PyObject *RewriterType = (PyObject*)cmonster::python::init_rewriter_type();
     if (!RewriterType)
+        return NULL;
+
+    PyObject *SourceLocationType =
+        (PyObject*)cmonster::python::init_source_location_type();
+    if (!SourceLocationType)
+        return NULL;
+
+    if (!cmonster::python::init_preprocessor_type())
+        return NULL;
+    if (!cmonster::python::init_token_iterator_type())
         return NULL;
 
     // Initialise module.
@@ -77,10 +87,12 @@ PyInit__cmonster(void)
     Py_INCREF(ParseResultType);
     Py_INCREF(TokenType);
     Py_INCREF(RewriterType);
+    Py_INCREF(SourceLocationType);
     PyModule_AddObject(module, "Parser", ParserType);
     PyModule_AddObject(module, "ParseResult", ParseResultType);
     PyModule_AddObject(module, "Token", TokenType);
     PyModule_AddObject(module, "Rewriter", RewriterType);
+    PyModule_AddObject(module, "SourceLocation", SourceLocationType);
 
     // Add constants (token kinds).
     for (long i = 0; i < clang::tok::NUM_TOKENS; ++i)

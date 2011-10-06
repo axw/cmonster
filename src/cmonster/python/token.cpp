@@ -20,9 +20,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+// XXX Py_LIMITED_API is disabled for now, see "init_token_type".
 /* Define this to ensure only the limited API is used, so we can ensure forward
  * binary compatibility. */
-#define Py_LIMITED_API
+//#define Py_LIMITED_API
 
 #include <Python.h>
 #include <stdexcept>
@@ -185,6 +186,12 @@ Token_set_token_id(Token *self, PyObject *value, void *closure)
     return Py_None;
 }
 
+static Py_ssize_t Token_length(Token *self)
+{
+    clang::Token const& token = self->token->getClangToken();
+    return token.getLength();
+}
+
 static PyGetSetDef Token_getset[] = {
     {(char*)"token_id", (getter)Token_get_token_id, (setter)Token_set_token_id,
      NULL /* docs */, NULL /* closure */},
@@ -199,12 +206,16 @@ static PyType_Slot TokenTypeSlots[] =
     {Py_tp_repr,    (void*)Token_repr},
     {Py_tp_doc,     (void*)Token_doc},
     {Py_tp_init,    (void*)Token_init},
+
+    // See note below in "init_token_type".
+    {Py_sq_length, (void*)Token_length},
+
     {0, NULL}
 };
 
 static PyType_Spec TokenTypeSpec =
 {
-    "cmonster._preprocessor.Token",
+    "cmonster._cmonster.Token",
     sizeof(Token),
     0,
     Py_TPFLAGS_DEFAULT,
@@ -216,6 +227,13 @@ PyTypeObject* init_token_type()
     TokenType = (PyTypeObject*)PyType_FromSpec(&TokenTypeSpec);
     if (!TokenType)
         return NULL;
+
+    // FIXME (CPython Issue 13115)
+    // Unfortunately the limited Python API doesn't set 'tp_as_sequence'
+    // correctly, so we miss out on __len__. Until it's fixed, we're disabling
+    // Py_LIMITED_API.
+    TokenType->tp_as_sequence = &((PyHeapTypeObject*)TokenType)->as_sequence;
+
     if (PyType_Ready(TokenType) < 0)
         return NULL;
     return TokenType;

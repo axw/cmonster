@@ -23,9 +23,6 @@ SOFTWARE.
 #ifndef _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
 #define _CMONSTER_PYTHON_SCOPED_PYOBJECT_HPP
 
-/* Define this to ensure only the limited API is used, so we can ensure forward
- * binary compatibility. */
-#define Py_LIMITED_API
 #include <Python.h>
 
 namespace cmonster {
