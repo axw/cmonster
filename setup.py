@@ -53,15 +53,11 @@ _cmonster_extension = Extension(
     # LLVM/Clang include directories.
     include_dirs = [
         "src",
-        "/home/andrew/prog/llvm/tools/clang/include/",
-        "/home/andrew/prog/llvm/build/tools/clang/include/",
-        "/home/andrew/prog/llvm/include/",
-        "/home/andrew/prog/llvm/build/include/"
+        "clang/include"
     ],
 
     # LLVM/Clang libraries.
-    #library_dirs = ["/home/andrew/prog/llvm/build/Debug+Asserts/lib"],
-    library_dirs = ["/home/andrew/prog/llvm/build/Release/lib"],
+    library_dirs = ["clang/lib"],
     libraries = [
         "clangRewrite",
         "clangFrontend",

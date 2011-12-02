@@ -63,7 +63,7 @@ public:
         // Configure the include paths.
         clang::HeaderSearchOptions &hsopts = m_compiler.getHeaderSearchOpts();
         hsopts.UseBuiltinIncludes = false;
-        hsopts.UseStandardIncludes = false;
+        hsopts.UseStandardSystemIncludes = false;
         hsopts.UseStandardCXXIncludes = false;
 
         // Disable predefined macros. We'll get these from the target
