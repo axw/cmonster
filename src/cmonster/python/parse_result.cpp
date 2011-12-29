@@ -91,7 +91,8 @@ ParseResult_get_translation_unit(ParseResult *self, void *closure)
 {
     if (!TranslationUnitDeclType)
     {
-        ScopedPyObject ast_module(PyImport_ImportModule("cmonster._ast"));
+        ScopedPyObject ast_module(PyImport_ImportModule(
+            "cmonster._cmonster_ast"));
         if (!ast_module)
             return NULL;
         TranslationUnitDeclType = (PyTypeObject*)PyObject_GetAttrString(

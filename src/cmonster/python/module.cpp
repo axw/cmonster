@@ -46,7 +46,12 @@ static PyModuleDef cmonstermodule = {
     NULL, NULL, NULL, NULL, NULL
 };
 
+// Init function for "_ast". We're bundling two modules into the same
+// extension to minimise size.
+extern "C" PyObject* PyInit__cmonster_ast(void);
+
 extern "C" {
+
 PyMODINIT_FUNC
 PyInit__cmonster(void)
 {
@@ -102,6 +107,16 @@ PyInit__cmonster(void)
             static_cast<clang::tok::TokenKind>(i))));
         PyModule_AddIntConstant(module, name.c_str(), i);
     }
+
+    // Create the _ast module, and add it to _cmonster.
+    PyObject *ast_module = PyInit__cmonster_ast();
+    if (!ast_module)
+    {
+        Py_DECREF(module);
+        return NULL;
+    }
+    Py_INCREF(ast_module);
+    PyModule_AddObject(module, "_cmonster_ast", ast_module);
 
     return module;
 }

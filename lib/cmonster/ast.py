@@ -18,5 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from ._ast import *
+from ._cmonster import _cmonster_ast
+import sys
+sys.modules["cmonster._cmonster_ast"] = _cmonster_ast
+del _cmonster_ast
+del sys
+
+from cmonster._cmonster_ast import *
 
