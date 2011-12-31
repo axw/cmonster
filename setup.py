@@ -7,10 +7,10 @@ import subprocess
 import Cython.Distutils
 
 description = """
-cmonster is a Python wrapper for the C++ preprocessor, parser. As well as the
-standard preprocessing/parsing, cmonster adds support for inline Python macros,
-programmatic #include handling, and (currently rudimentary) source-to-source
-translation.
+cmonster is a Python wrapper for the Clang C++ parser. As well as providing
+standard preprocessing/parsing capabilities, cmonster adds support for inline
+Python macros, programmatic #include handling, and (currently rudimentary)
+source-to-source translation.
 """.strip()
 
 
