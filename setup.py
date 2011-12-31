@@ -3,13 +3,33 @@ use_setuptools()
 
 from setuptools import setup
 from setuptools.extension import Extension
+import subprocess
 import Cython.Distutils
 
 description = """
-cmonster is a Python wrapper around the Clang/LLVM preprocessor, adding support
-for inline Python macros, programmatic #include handling, and external
-preprocessor emulation.
+cmonster is a Python wrapper for the C++ preprocessor, parser. As well as the
+standard preprocessing/parsing, cmonster adds support for inline Python macros,
+programmatic #include handling, and (currently rudimentary) source-to-source
+translation.
 """.strip()
+
+
+# Get the LLVM/Clang include and library directories.
+try:
+    proc = subprocess.Popen(
+        ["llvm-config", "--includedir", "--libdir"],
+        stdout=subprocess.PIPE)
+    llvm_includedir, llvm_libdir = proc.communicate()[0].decode().splitlines()
+except:
+    import sys
+    import textwrap
+    import traceback
+    print()
+    print("llvm-config failed: Make sure you have LLVM and Clang installed.")
+    print()
+    traceback.print_exc()
+    sys.exit(1)
+
 
 # Remove the "-Wstrict-prototypes" compiler option, which isn't valid for C++.
 import distutils.sysconfig
@@ -88,13 +108,10 @@ _cmonster_extension = Extension(
                      ("__STDC_CONSTANT_MACROS", 1)],
 
     # LLVM/Clang include directories.
-    include_dirs = [
-        "src",
-        "clang/include"
-    ],
+    include_dirs = ["src", llvm_includedir],
 
     # LLVM/Clang libraries.
-    library_dirs = ["clang/lib"],
+    library_dirs = [llvm_libdir],
     libraries = [
         "clangRewrite",
         "clangFrontend",
