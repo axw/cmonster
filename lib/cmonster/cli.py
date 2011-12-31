@@ -26,6 +26,10 @@ def cli_main():
     parser.add_argument(
         "file", type=argparse.FileType("r"), nargs=1,
         help="the file to preprocess")
+    parser.add_argument(
+        "-I", action="append", dest="include_dirs")
+    parser.add_argument(
+        "-D", action="append", dest="defines")
     args = parser.parse_args()
 
     # Create the preprocessor.
@@ -33,5 +37,16 @@ def cli_main():
     from . import Parser
 
     parser = Parser(args.file[0])
+    if args.include_dirs:
+        for include_dir in args.include_dirs:
+            parser.preprocessor.add_include_dir(include_dir)
+    if args.defines:
+        for define in args.defines:
+            assign = define.find("=")
+            if assign == -1:
+                parser.preprocessor.define(define)
+            else:
+                name, value = define[:assign], define[assign+1:]
+                parser.preprocessor.define(name, value)
     parser.preprocessor.preprocess()
 
