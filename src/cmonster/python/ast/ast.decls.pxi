@@ -110,6 +110,7 @@ cdef class ParmVarDecl(VarDecl):
 
 cdef class TranslationUnitDecl(Decl):
     cdef object parser
+    cdef DeclContext declcontext
 
     def __init__(self, parser, capsule):
         assert PyCapsule_IsValid(capsule, <char*>0)
@@ -118,13 +119,11 @@ cdef class TranslationUnitDecl(Decl):
                 capsule, <char*>0)
         self.parser = parser
         self.ptr = tu
+        self.declcontext = DeclContext(self)
+        self.declcontext.ptr = <clang.decls.DeclContext*>tu
 
     cdef DeclContext __getDeclContext(self):
-        cdef DeclContext dc = DeclContext(self)
-        cdef clang.decls.TranslationUnitDecl *tu = \
-            <clang.decls.TranslationUnitDecl*>self.ptr
-        dc.ptr = <clang.decls.DeclContext*>tu
-        return dc
+        return self.declcontext
 
     property declarations:
         def __get__(self):
