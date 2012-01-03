@@ -64,9 +64,10 @@ each top-level function declaration's body:
 
 ## Installation
 
-cmonster requires [Python 3.2](http://python.org/download/releases/3.2.2/) and
-[LLVM/Clang 3.0](http://llvm.org/releases/download.html#3.0), so first ensure
-you have them installed.
+cmonster requires [Python 3.2](http://python.org/download/releases/3.2.2/),
+[LLVM/Clang 3.0](http://llvm.org/releases/download.html#3.0), and
+[Cython](http://cython.org/#download), so first ensure you have them
+installed.
 
 Now you can use
 [easy\_install](http://packages.python.org/distribute/easy_install.html) to
