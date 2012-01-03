@@ -3,8 +3,8 @@
 cmonster is a Python wrapper for the [Clang](http://clang.llvm.org/) C++
 parser.
 
-As well as providing standard preprocessing/parsing capabilities, cmonster adds
-support for:
+As well as providing standard preprocessing/parsing capabilities, cmonster
+adds support for:
 
 * Inline Python macros;
 * Programmatic #include handling; and
@@ -19,21 +19,27 @@ time...
 
 You can define inline Python macros like so:
 
-    py_def(function_name(arg1, arg2, *args, **kwdargs))
-        return [list_of_tokens]
-    py_end
+```python
+py_def(function_name(arg1, arg2, *args, **kwdargs))
+    return [list_of_tokens]
+py_end
+```
 
 Python macros must return a string, which will be tokenized, or a sequence of
 tokens (e.g. some combination of the input arguments). Python macros are used
 exactly the same as ordinary macros. e.g.
 
-    py_def(REVERSED(token))
-        return "".join(reversed(str(token)))
-    py_end
-
-    int main() {
-        printf("%s\n", REVERSED("Hello, World!"));
-    }
+```python
+py_def(REVERSED(token))
+    return "".join(reversed(str(token)))
+py_end
+```
+```cpp
+int main() {
+    printf("%s\n", REVERSED("Hello, World!"));
+    return 0;
+}
+```
 
 ### Source-to-source translation
 
@@ -42,25 +48,30 @@ then traversing the AST, and making modifications in a _rewriter_. The rewriter
 object maintains a history of changes, and can eventually be told to dump the
 modified file to a stream.
 
-For example, here's a basic example of how to make an insertion at the top of
-each top-level function declaration's body:
+For example, here's a snippet of Python code that shows how to make an insertion
+at the top of each top-level function declaration's body:
 
-    # Create a parser, and a rewriter. Parse the code.
-    parser = cmonster.Parser(filename)
-    ast = parser.parse()
-    rewriter = cmonster.Rewriter(ast)
+```python
+import cmonster
+import cmonster.ast
+import sys
 
-    # For each top-level function declaration, insert a statement at the top of
-    # its body.
-    for decl in ast.translation_unit.declarations:
-        if decl.location.in_main_file and \
-           isinstance(decl, cmonster.ast.FunctionDecl):
-            insertion_loc = decl.body[0]
-            rewriter.insert(insertion_loc, 'printf("Tada!\\n");\n')
+# Create a parser, and a rewriter. Parse the code.
+parser = cmonster.Parser(filename)
+ast = parser.parse()
+rewriter = cmonster.Rewriter(ast)
 
-    # Finally, dump the result.
-    rewriter.dump(sys.stdout)
+# For each top-level function declaration, insert a statement at the top of
+# its body.
+for decl in ast.translation_unit.declarations:
+    if decl.location.in_main_file and \
+       isinstance(decl, cmonster.ast.FunctionDecl):
+        insertion_loc = decl.body[0]
+        rewriter.insert(insertion_loc, 'printf("Tada!\\n");\n')
 
+# Finally, dump the result.
+rewriter.dump(sys.stdout)
+```
 
 ## Installation
 
