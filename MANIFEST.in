@@ -1,4 +1,5 @@
 recursive-include src *.hpp *.cpp
+include distribute_setup.py
 
 # No formal test suite yet, ignore for now.
 prune test
