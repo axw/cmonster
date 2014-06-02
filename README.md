@@ -1,3 +1,5 @@
+*I am no longer developing cmonster; please see the fork at [github.com/sztomi/cmonster](https://github.com/sztomi/cmonster).*
+
 # cmonster
 
 cmonster is a Python wrapper for the [Clang](http://clang.llvm.org/) C++
